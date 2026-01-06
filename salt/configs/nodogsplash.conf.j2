@@ -1,7 +1,7 @@
 # pioneer-os/salt/configs/nodogsplash.conf
 # Minimal Nodogsplash Config for Pioneer OS
 
-GatewayInterface wlan0
+GatewayInterface {{ grains.get('pioneer_ap_iface', 'wlan0') }}
 GatewayAddress 10.50.0.1
 MaxClients 50
 AuthIdleTimeout 480
