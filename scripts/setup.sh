@@ -1,42 +1,66 @@
 #!/bin/bash
-# Pioneer OS Bootstrap Script (MVP)
-# Target: Raspberry Pi 4 (4GB) with External SSD + USB WiFi
-#
-# Usage: sudo ./setup.sh
-#
-# This script transforms a fresh Raspberry Pi OS Lite install into a Pioneer OS node.
-# It is designed to be idempotent (can be run multiple times).
+# Pioneer OS Bootstrap Script
+# Usage: sudo curl -sSL https://raw.githubusercontent.com/bchabot/pioneer-os/master/scripts/setup.sh | bash
 
 set -e
 LOG_FILE="/var/log/pioneer-setup.log"
+REPO_URL="https://github.com/bchabot/pioneer-os.git"
+INSTALL_DIR="/opt/pioneer-os"
 
 log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# Ensure root
+if [ "$EUID" -ne 0 ]; then 
+  echo "Please run as root (sudo bash)"
+  exit 1
+fi
+
 log ">>> [Pioneer OS] Starting Bootstrap..."
 
-# --- Configuration ---
-HOSTNAME="pioneer-core"
-HOTSPOT_SSID="PIONEER_SETUP"
-HOTSPOT_PASS="pioneer123"
-AP_IFACE="wlan0"     # Onboard WiFi for Hotspot (Stable)
-WAN_IFACE="wlan1"    # USB WiFi for Internet (if available)
+# --- Interactive Configuration ---
+echo ""
+echo "Welcome to Pioneer OS Setup."
+echo "Press Enter to accept defaults."
+echo ""
 
-# 1. System Prep
-log ">>> [1/6] Updating System & Setting Hostname..."
-apt-get update && apt-get upgrade -y
-hostnamectl set-hostname $HOSTNAME
-# Install essential utils
+read -p "Hostname [pioneer-core]: " HOSTNAME_INPUT
+HOSTNAME=${HOSTNAME_INPUT:-pioneer-core}
+
+read -p "Hotspot SSID [PIONEER_SETUP]: " SSID_INPUT
+HOTSPOT_SSID=${SSID_INPUT:-PIONEER_SETUP}
+
+read -p "Hotspot Password [pioneer123]: " PASS_INPUT
+HOTSPOT_PASS=${PASS_INPUT:-pioneer123}
+
+echo ""
+log "Configuration:"
+log "  Hostname: $HOSTNAME"
+log "  SSID:     $HOTSPOT_SSID"
+log "---------------------------------"
+
+# 1. System Prep & Repo Clone
+log ">>> [1/6] Preparing System..."
+apt-get update
 apt-get install -y curl wget git network-manager vim htop dnsmasq
+
+# Clone/Update Repo
+if [ -d "$INSTALL_DIR" ]; then
+    log "Updating existing repository at $INSTALL_DIR..."
+    git -C "$INSTALL_DIR" pull
+else
+    log "Cloning repository to $INSTALL_DIR..."
+    git clone "$REPO_URL" "$INSTALL_DIR"
+fi
+
+hostnamectl set-hostname $HOSTNAME
 
 # 2. Container Engine (Docker)
 log ">>> [2/6] Installing Docker..."
 if ! command -v docker &> /dev/null; then
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sh get-docker.sh
+    curl -fsSL https://get.docker.com | sh
     usermod -aG docker $USER
-    rm get-docker.sh
     log "Docker installed."
 else
     log "Docker already present."
@@ -45,7 +69,6 @@ fi
 # 3. Cockpit Web Admin
 log ">>> [3/6] Installing Cockpit..."
 apt-get install -y cockpit cockpit-networkmanager cockpit-packagekit
-# Allow cockpit on port 9090
 systemctl enable --now cockpit.socket
 
 # 4. SaltStack (Masterless)
@@ -56,27 +79,42 @@ if ! command -v salt-call &> /dev/null; then
     rm install_salt.sh
 fi
 
-# Configure Salt for Masterless Mode
-log "Configuring Salt for local (file) mode..."
+# Configure Salt to use the Repo directly
+log "Configuring Salt..."
 mkdir -p /etc/salt/minion.d
 cat <<EOF > /etc/salt/minion.d/local.conf
 file_client: local
 file_roots:
   base:
-    - /srv/salt/states
+    - $INSTALL_DIR/salt/states
 pillar_roots:
   base:
-    - /srv/salt/pillar
+    - $INSTALL_DIR/salt/pillar
 EOF
 
-# Ensure Salt Directories Exist
-mkdir -p /srv/salt/states
-mkdir -p /srv/salt/pillar
+# Detect Wireless Interface
+get_wireless_interface() {
+    local iface=$(nmcli device | grep wifi | head -n 1 | awk '{print $1}')
+    if [ -z "$iface" ]; then
+        iface=$(ls /sys/class/net | grep -E '^wl' | head -n 1)
+    fi
+    echo "$iface"
+}
 
-# 5. Networking (Dual Interface Strategy)
-log ">>> [5/6] Configuring NetworkManager..."
+AP_IFACE=$(get_wireless_interface)
 
-# Ensure NetworkManager is managing everything
+if [ -n "$AP_IFACE" ]; then
+    log "Detected Wireless Interface: $AP_IFACE"
+    # Set Grain
+    echo "pioneer_ap_iface: $AP_IFACE" > /etc/salt/grains
+else
+    log "ERROR: No wireless interface found! Hotspot might fail."
+fi
+
+# 5. Networking
+log ">>> [5/6] Configuring Network..."
+
+# NetworkManager Management
 cat <<EOF > /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
 [keyfile]
 unmanaged-devices=none
@@ -84,28 +122,23 @@ EOF
 systemctl restart NetworkManager
 sleep 5
 
-# Create Hotspot on Internal WiFi (wlan0)
-if ! nmcli connection show "$HOTSPOT_SSID" &> /dev/null; then
-    log "Creating Hotspot on $AP_IFACE..."
-    nmcli con add type wifi ifname $AP_IFACE con-name "$HOTSPOT_SSID" autoconnect yes ssid "$HOTSPOT_SSID"
-    nmcli con modify "$HOTSPOT_SSID" 802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared
-    nmcli con modify "$HOTSPOT_SSID" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$HOTSPOT_PASS"
-    log "Hotspot '$HOTSPOT_SSID' created."
-else
-    log "Hotspot already exists."
+# Create Hotspot
+if [ -n "$AP_IFACE" ]; then
+    if ! nmcli connection show "$HOTSPOT_SSID" &> /dev/null; then
+        log "Creating Hotspot '$HOTSPOT_SSID' on $AP_IFACE..."
+        nmcli con add type wifi ifname $AP_IFACE con-name "$HOTSPOT_SSID" autoconnect yes ssid "$HOTSPOT_SSID"
+        nmcli con modify "$HOTSPOT_SSID" 802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared
+        nmcli con modify "$HOTSPOT_SSID" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$HOTSPOT_PASS"
+    else
+        log "Hotspot already exists."
+    fi
 fi
 
-# Note: We assume the user configured WAN (wlan1 or eth0) via RPi Imager or manual setup for now
-# to download these packages.
+# 6. Apply Salt State
+log ">>> [6/6] Applying Configuration..."
+salt-call --local state.apply
 
-# 6. Finalize
-log ">>> [6/6] Bootstrap Complete!"
-log "    Access Cockpit at: https://<IP>:9090"
-log "    Hotspot Active: $HOTSPOT_SSID ($HOTSPOT_PASS)"
-log "    Please reboot to apply all changes."
-
-# Optional: Run Salt Highstate immediately if states are present
-if [ -f "/srv/salt/top.sls" ]; then
-    log "Running Initial Salt State Apply..."
-    salt-call --local state.apply
-fi
+log ">>> Bootstrap Complete!"
+log "    Access Cockpit at: https://$(hostname -I | awk '{print $1}'):9090"
+log "    Hotspot: $HOTSPOT_SSID / $HOTSPOT_PASS"
+log "    Please reboot."
