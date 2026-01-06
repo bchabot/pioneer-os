@@ -1,25 +1,24 @@
-# Pioneer OS (Project Pioneer)
+# Pioneer OS
 
-**A modular, secure, and ruggedized operating system for Raspberry Pi-based appliances.**
+Pioneer OS is a lightweight, appliance-like operating system built on top of Raspberry Pi OS Lite. It provides a robust platform for edge computing, featuring a web-based management interface (Cockpit), container orchestration (Docker), and automated configuration management (SaltStack).
 
-## The Vision
-Pioneer OS is a single, unified codebase that powers four distinct hardware products by applying different configuration "States." It turns a standard Raspberry Pi into a mission-critical appliance.
+## Quick Start
 
-## The 4 Product Configurations (Skins)
+To convert a fresh Raspberry Pi OS Lite installation into a Pioneer OS node, run the following command:
 
-| Product | Role | Core Apps | Hardware Target |
-| :--- | :--- | :--- | :--- |
-| **Digital Ark** | Offline Knowledge Library | Kiwix, Calibre, Maps | Pi 3B+ / 4 (Low Power) |
-| **Field Team** | Local Comm Hub | NextCloud, Rocket.Chat, Gitea | Pi 4 / 5 (Performance) |
-| **Sovereign Home** | Privacy Server | Home Assistant, Vaultwarden, Immich | Pi 4 / 5 (Storage Heavy) |
-| **Yacht Library** | Marine Computer | OpenCPN, Signal K, AIS | Pi 3B+ / 4 (Low Power) |
+```bash
+wget -qO- https://raw.githubusercontent.com/bchabot/pioneer-os/master/scripts/setup.sh | sudo bash
+```
 
-## Tech Stack
-*   **Base OS:** Raspberry Pi OS Lite (64-bit) / Debian Bookworm.
-*   **Management:** SaltStack (Masterless Mode).
-*   **UI:** Cockpit Project (Web Admin) + Custom Dashboard Plugin.
-*   **App Layer:** Docker / Podman (Containerized).
-*   **Networking:** NetworkManager (Hotspot), WireGuard (VPN).
+## Features
 
-## Getting Started
-*(Instructions to be added: Bootstrap script usage)*
+- **Web Admin Interface:** Managed via Cockpit on port 9090.
+- **Hotspot:** Automatically creates a management hotspot if a wireless interface is detected.
+- **Container Ready:** Docker pre-installed and configured.
+- **Configuration Management:** Built on SaltStack for reliable state management.
+
+## Default Credentials
+
+- **Cockpit:** Uses your system user credentials.
+- **Hotspot SSID:** `PIONEER_SETUP` (configurable during setup)
+- **Hotspot Password:** `pioneer123` (configurable during setup)
