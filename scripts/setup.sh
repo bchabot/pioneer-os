@@ -109,7 +109,7 @@ systemctl enable --now cockpit.socket
 # 4. SaltStack (Masterless)
 log ">>> [4/6] Installing SaltStack Minion..."
 if ! command -v salt-call &> /dev/null; then
-    curl -fsSL https://bootstrap.saltproject.io -o install_salt.sh
+    curl -fsSL https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh -o install_salt.sh
     sh install_salt.sh -P -M -x python3
     rm install_salt.sh
 fi
