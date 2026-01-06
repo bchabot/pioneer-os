@@ -1,15 +1,33 @@
 #!/bin/bash
 # Pioneer OS Bootstrap Script
-# Usage: sudo curl -sSL https://raw.githubusercontent.com/bchabot/pioneer-os/master/scripts/setup.sh | bash
+# Usage: sudo curl -sSL https://raw.githubusercontent.com/bchabot/pioneer-os/master/scripts/setup.sh | bash -s -- [options]
+# Options:
+#   --debug    Enable verbose logging and debug mode
 
 set -e
 LOG_FILE="/var/log/pioneer-setup.log"
 REPO_URL="https://github.com/bchabot/pioneer-os.git"
 INSTALL_DIR="/opt/pioneer-os"
+DEBUG_MODE=false
+
+# Check for arguments
+for arg in "$@"; do
+    case $arg in
+        --debug)
+            DEBUG_MODE=true
+            shift
+            ;;
+    esac
+done
 
 log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
+
+if [ "$DEBUG_MODE" = true ]; then
+    log "!!! DEBUG MODE ENABLED !!!"
+    set -x
+fi
 
 # Ensure root
 if [ "$EUID" -ne 0 ]; then 
@@ -18,6 +36,23 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 log ">>> [Pioneer OS] Starting Bootstrap..."
+
+if [ "$DEBUG_MODE" = true ]; then
+    log ">>> [DEBUG] Capturing System Snapshot..."
+    {
+        echo "--- KERNEL ---"
+        uname -a
+        echo "--- USB DEVICES ---"
+        lsusb
+        echo "--- NETWORK ---"
+        ip a
+        nmcli device
+        echo "--- MEMORY ---"
+        free -h
+        echo "--- DISK ---"
+        df -h
+    } >> "$LOG_FILE" 2>&1
+fi
 
 # --- Interactive Configuration ---
 echo ""
@@ -109,6 +144,12 @@ if [ -n "$AP_IFACE" ]; then
     echo "pioneer_ap_iface: $AP_IFACE" > /etc/salt/grains
 else
     log "ERROR: No wireless interface found! Hotspot might fail."
+    # Ensure grains file exists even if empty
+    touch /etc/salt/grains
+fi
+
+if [ "$DEBUG_MODE" = true ]; then
+    echo "pioneer_debug: true" >> /etc/salt/grains
 fi
 
 # 5. Networking
