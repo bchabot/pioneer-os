@@ -60,13 +60,14 @@ echo "Welcome to Pioneer OS Setup."
 echo "Press Enter to accept defaults."
 echo ""
 
-read -p "Hostname [pioneer-core]: " HOSTNAME_INPUT
+# We read from /dev/tty to ensure it works when piped to bash
+read -p "Hostname [pioneer-core]: " HOSTNAME_INPUT < /dev/tty
 HOSTNAME=${HOSTNAME_INPUT:-pioneer-core}
 
-read -p "Hotspot SSID [PIONEER_SETUP]: " SSID_INPUT
+read -p "Hotspot SSID [PIONEER_SETUP]: " SSID_INPUT < /dev/tty
 HOTSPOT_SSID=${SSID_INPUT:-PIONEER_SETUP}
 
-read -p "Hotspot Password [pioneer123]: " PASS_INPUT
+read -p "Hotspot Password [pioneer123]: " PASS_INPUT < /dev/tty
 HOTSPOT_PASS=${PASS_INPUT:-pioneer123}
 
 echo ""
@@ -129,7 +130,15 @@ EOF
 
 # Detect Wireless Interface
 get_wireless_interface() {
-    local iface=$(nmcli device | grep wifi | head -n 1 | awk '{print $1}')
+    # Prioritize disconnected interfaces so we don't kill the active SSH connection
+    local iface=$(nmcli -t -f DEVICE,STATE device | grep "wifi:disconnected" | head -n 1 | cut -d: -f1)
+    
+    # Fallback to any wifi interface if none are disconnected
+    if [ -z "$iface" ]; then
+        iface=$(nmcli device | grep wifi | head -n 1 | awk '{print $1}')
+    fi
+    
+    # Final fallback to sysfs
     if [ -z "$iface" ]; then
         iface=$(ls /sys/class/net | grep -E '^wl' | head -n 1)
     fi
