@@ -1,0 +1,26 @@
+version: '3.1'
+
+services:
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: pioneer
+      WORDPRESS_DB_PASSWORD: securepassword
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - ./wp-content:/var/www/html/wp-content
+
+  db:
+    image: mariadb:10.6
+    restart: always
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: pioneer
+      MYSQL_PASSWORD: securepassword
+      MYSQL_ROOT_PASSWORD: rootpassword
+    volumes:
+      - ./db-data:/var/lib/mysql
