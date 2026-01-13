@@ -123,6 +123,7 @@ file_client: local
 file_roots:
   base:
     - $INSTALL_DIR/salt/states
+    - $INSTALL_DIR
 pillar_roots:
   base:
     - $INSTALL_DIR/salt/pillar

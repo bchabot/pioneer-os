@@ -21,7 +21,7 @@ dashboard_dir:
 dashboard_files:
   file.recurse:
     - name: /opt/pioneer-dashboard
-    - source: salt://../../dashboard
+    - source: salt://dashboard
     - include_empty: True
     - require:
       - file: dashboard_dir
