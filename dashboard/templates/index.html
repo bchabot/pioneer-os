@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pioneer OS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; color: #333; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-5px); }
+        .status-indicator { width: 15px; height: 15px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .status-green { background-color: #28a745; }
+        .status-red { background-color: #dc3545; }
+        .btn-xl { padding: 20px 30px; font-size: 1.2rem; border-radius: 10px; width: 100%; margin-bottom: 15px; }
+        .header { background: #2c3e50; color: white; padding: 20px 0; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="container d-flex justify-content-between align-items-center">
+        <h1><i class="fas fa-compass"></i> Pioneer OS</h1>
+        <span class="badge bg-light text-dark">Host: {{ hostname }}</span>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <!-- Status Column -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">System Health</h5>
+                    <hr>
+                    <p><span id="net-status" class="status-indicator status-red"></span> Internet Connection</p>
+                    
+                    <label>Disk Usage ({{ disk_percent }}%)</label>
+                    <div class="progress mb-3" style="height: 20px;">
+                        <div class="progress-bar bg-info" role="progressbar" style="width: {{ disk_percent }}%"></div>
+                    </div>
+
+                    <div class="alert alert-secondary mt-3">
+                        <small>IP Address: <span id="ip-addr">Loading...</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-md-8 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Control Panel</h5>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <a href="http://{{ request.host.split(':')[0] }}:9090" target="_blank" class="btn btn-outline-primary btn-xl">
+                                <i class="fas fa-tools"></i> Advanced Admin<br><small>Open Cockpit</small>
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <button onclick="sendAction('reboot')" class="btn btn-outline-warning btn-xl">
+                                <i class="fas fa-sync-alt"></i> Reboot System
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button onclick="sendAction('shutdown')" class="btn btn-outline-danger btn-xl">
+                                <i class="fas fa-power-off"></i> Power Off
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateStatus() {
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                const net = document.getElementById('net-status');
+                net.className = 'status-indicator ' + (data.internet ? 'status-green' : 'status-red');
+            });
+        
+        // Simple hack to get local IP from window location if appropriate, 
+        // or we could render it from server side.
+        document.getElementById('ip-addr').innerText = window.location.hostname;
+    }
+
+    function sendAction(cmd) {
+        if(confirm('Are you sure you want to ' + cmd + '?')) {
+            fetch('/api/action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({command: cmd})
+            });
+        }
+    }
+
+    // Update every 5 seconds
+    setInterval(updateStatus, 5000);
+    updateStatus();
+</script>
+</body>
+</html>

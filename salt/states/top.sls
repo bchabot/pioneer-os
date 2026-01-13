@@ -5,6 +5,7 @@ base:
     - core.cockpit
     - core.docker
     - core.portainer  # Added Portainer for "App UI"
+    - core.dashboard  # Added Pioneer Easy Dashboard
 
   # The POC Role (Testing everything)
   'roles:poc':
