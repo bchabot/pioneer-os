@@ -10,7 +10,7 @@ def check_internet():
         # Ping Google's DNS to check connectivity
         subprocess.check_call(['ping', '-c', '1', '8.8.8.8'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 
 def get_service_status(service_name):

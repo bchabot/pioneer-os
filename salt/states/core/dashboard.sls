@@ -1,16 +1,12 @@
 # pioneer-os/salt/states/core/dashboard.sls
 
-# Install Dependencies
-python3_pip:
+# Install Dependencies via APT (More stable than PIP for system tools)
+dashboard_pkgs:
   pkg.installed:
-    - name: python3-pip
-
-dashboard_deps:
-  pip.installed:
-    - requirements: /opt/pioneer-dashboard/requirements.txt
-    - require:
-      - pkg: python3_pip
-      - file: dashboard_files
+    - pkgs:
+      - python3-flask
+      - python3-psutil
+      - iputils-ping
 
 # Deploy Files
 dashboard_dir:
@@ -45,6 +41,7 @@ dashboard_service_file:
         WantedBy=multi-user.target
     - require:
       - file: dashboard_files
+      - pkg: dashboard_pkgs
 
 dashboard_service_running:
   service.running:
