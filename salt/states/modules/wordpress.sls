@@ -11,7 +11,7 @@
 # Deploy Docker Compose for WordPress + DB
 /opt/pioneer/wordpress/docker-compose.yml:
   file.managed:
-    - source: salt://configs/wordpress/docker-compose.yml
+    - source: salt://salt/configs/wordpress/docker-compose.yml
     - makedirs: True
 
 # Run the Container

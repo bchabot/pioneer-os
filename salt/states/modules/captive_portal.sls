@@ -8,7 +8,7 @@ install_nodogsplash:
 # 2. Configure Nodogsplash
 /etc/nodogsplash/nodogsplash.conf:
   file.managed:
-    - source: salt://configs/nodogsplash.conf.j2
+    - source: salt://salt/configs/nodogsplash.conf.j2
     - template: jinja
     - makedirs: True
     - user: root
