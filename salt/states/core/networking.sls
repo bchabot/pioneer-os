@@ -10,10 +10,17 @@ enable_network_manager:
     - name: NetworkManager
     - enable: True
 
-# Install DNSMasq for local DNS / DHCP (Used by Nodogsplash/Hotspot)
+# Install DNSMasq (NetworkManager uses the binary, but we don't want the system service running)
 dnsmasq_pkg:
   pkg.installed:
     - name: dnsmasq
+
+disable_system_dnsmasq:
+  service.dead:
+    - name: dnsmasq
+    - enable: False
+    - require:
+      - pkg: dnsmasq
 
 # We will let NetworkManager handle the actual interface config (AP mode)
 # via the 'nmcli' commands run in the setup script.

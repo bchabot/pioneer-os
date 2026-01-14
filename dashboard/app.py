@@ -303,4 +303,5 @@ def action():
     return jsonify({'status': 'unknown_command'}), 400
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    # Run on port 5000 (Nginx will proxy to this)
+    app.run(host='0.0.0.0', port=5000)

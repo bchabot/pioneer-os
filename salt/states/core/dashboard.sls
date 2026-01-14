@@ -37,6 +37,7 @@ dashboard_service_file:
         WorkingDirectory=/opt/pioneer-dashboard
         ExecStart=/usr/bin/python3 app.py
         Restart=always
+        Environment=PORT=5000
 
         [Install]
         WantedBy=multi-user.target
