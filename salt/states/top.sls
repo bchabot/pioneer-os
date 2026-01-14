@@ -6,6 +6,7 @@ base:
     - core.docker
     - core.portainer  # Added Portainer for "App UI"
     - core.dashboard  # Added Pioneer Easy Dashboard
+    - core.proxy      # Added Nginx Reverse Proxy
 
   # The POC Role (Testing everything)
   'roles:poc':
