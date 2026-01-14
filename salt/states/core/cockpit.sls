@@ -7,10 +7,24 @@ cockpit_packages:
       - cockpit-networkmanager
       - cockpit-packagekit
 
+# Configure Cockpit to run under a subpath
+/etc/cockpit/cockpit.conf:
+  file.managed:
+    - makedirs: True
+    - contents: |
+        [WebService]
+        UrlRoot = /advanced-admin
+        ProtocolHeader = X-Forwarded-Proto
+        AllowUnencrypted = true
+    - require:
+      - pkg: cockpit_packages
+
 cockpit_service:
   service.running:
     - name: cockpit.socket
     - enable: True
+    - watch:
+      - file: /etc/cockpit/cockpit.conf
     - require:
       - pkg: cockpit_packages
 
