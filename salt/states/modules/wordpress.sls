@@ -21,3 +21,15 @@ wordpress_service:
     - cwd: /opt/pioneer/wordpress
     - onchanges:
       - file: /opt/pioneer/wordpress/docker-compose.yml
+
+# Force the database to use the correct HTTPS URL
+# This prevents WordPress from generating redirects to the old :8080 port.
+update_wordpress_urls:
+  cmd.run:
+    - name: |
+        docker exec wordpress-wordpress-1 wp option update home "https://pioneer-core.local/"
+        docker exec wordpress-wordpress-1 wp option update siteurl "https://pioneer-core.local/"
+    - require:
+      - cmd: wordpress_service
+    # Only run if the siteurl is incorrect
+    - unless: docker exec wordpress-wordpress-1 wp option get siteurl | grep "https://pioneer-core.local/"
