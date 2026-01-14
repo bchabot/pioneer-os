@@ -100,6 +100,14 @@ def get_installed_apps():
             "url": f"http://{hostname}.local:8080", 
             "login_info": "Default User: user / bitnami (Check logs if changed)"
         },
+        {
+            "id": "portainer", 
+            "name": "Portainer", 
+            "description": "Advanced App/Container Manager", 
+            "port": 9443,
+            "url": f"https://{hostname}.local:9443", 
+            "login_info": "Create admin user on first login."
+        },
         # {"id": "filebrowser", "name": "File Browser", "description": "Web-based File Manager", "port": 8081}
     ]
     try:
