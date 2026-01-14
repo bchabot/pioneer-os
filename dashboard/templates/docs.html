@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group">
+            <a href="#intro" class="list-group-item list-group-item-action">Introduction</a>
+            <a href="#admin" class="list-group-item list-group-item-action">Administration</a>
+            <a href="#apps" class="list-group-item list-group-item-action">Applications</a>
+        </div>
+    </div>
+    <div class="col-md-9">
+        <h2 id="intro">Welcome to Pioneer OS</h2>
+        <p>Pioneer OS is a rugged, field-ready operating system designed for autonomy and simplicity.</p>
+        
+        <h4 id="admin" class="mt-4">Administration</h4>
+        <p>The default dashboard allows you to monitor system health. To perform actions like Rebooting or configuring the Network, you must log in.</p>
+        <p><strong>Default Password:</strong> <code>pioneer_admin</code></p>
+        
+        <h4 id="apps" class="mt-4">Applications</h4>
+        <p>Use the "Apps" tab to deploy services like WordPress or File Sharing. These run in isolated containers for security.</p>
+    </div>
+</div>
+{% endblock %}

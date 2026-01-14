@@ -5,6 +5,7 @@ dashboard_pkgs:
   pkg.installed:
     - pkgs:
       - python3-flask
+      - python3-flask-login
       - python3-psutil
       - iputils-ping
 
