@@ -66,13 +66,17 @@ cockpit_service:
                 <h2>Advanced App Manager</h2>
                 <p>
                     Portainer provides advanced management for your Docker containers, images, and networks.
-                    It runs on a separate port (9000).
                 </p>
+                <p><small>Target: <span id="url-display">...</span></small></p>
                 <a href="#" id="link" class="btn" target="_blank">Launch Portainer</a>
             </div>
             <script>
-                // Dynamically set the link to the current hostname port 9000
-                document.getElementById('link').href = window.location.protocol + "//" + window.location.hostname + ":9000";
+                // Use port 9443 for HTTPS (Cockpit default), or 9000 for HTTP
+                var port = window.location.protocol === 'https:' ? '9443' : '9000';
+                var url = window.location.protocol + "//" + window.location.hostname + ":" + port;
+                
+                document.getElementById('link').href = url;
+                document.getElementById('url-display').innerText = url;
             </script>
         </body>
         </html>

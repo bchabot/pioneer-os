@@ -263,7 +263,8 @@ def action():
         
         elif cmd == 'start_app':
              if target == 'wordpress':
-                subprocess.run(['docker', 'compose', 'start'], cwd='/opt/pioneer/wordpress', check=False)
+                # Use up -d to ensure it starts even if not created or just stopped
+                subprocess.run(['docker', 'compose', 'up', '-d'], cwd='/opt/pioneer/wordpress', check=False)
                 return jsonify({'status': 'started'})
 
         elif cmd == 'stop_app':
