@@ -89,8 +89,17 @@ def ensure_hotspot_exists():
         return False
 
 def get_installed_apps():
+    # Assuming standard ports. In production, read from docker compose labels.
+    hostname = os.uname()[1]
     apps = [
-        {"id": "wordpress", "name": "WordPress", "description": "Blog and Website Builder", "port": 8080},
+        {
+            "id": "wordpress", 
+            "name": "WordPress", 
+            "description": "Blog and Website Builder", 
+            "port": 8080,
+            "url": f"http://{hostname}.local:8080", 
+            "login_info": "Default User: user / bitnami (Check logs if changed)"
+        },
         # {"id": "filebrowser", "name": "File Browser", "description": "Web-based File Manager", "port": 8081}
     ]
     try:
@@ -106,6 +115,64 @@ def get_installed_apps():
         print(f"Error checking apps: {e}", file=sys.stderr)
         pass
     return apps
+
+def read_dhcp_leases():
+    leases = []
+    lease_file = '/var/lib/misc/dnsmasq.leases'
+    if os.path.exists(lease_file):
+        with open(lease_file, 'r') as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 4:
+                    leases.append({
+                        'mac': parts[1],
+                        'ip': parts[2],
+                        'hostname': parts[3]
+                    })
+    return leases
+
+def read_static_hosts():
+    hosts = []
+    host_file = '/etc/dnsmasq.d/pioneer-hosts.conf'
+    if os.path.exists(host_file):
+        with open(host_file, 'r') as f:
+            for line in f:
+                if line.startswith('dhcp-host='):
+                    # Format: dhcp-host=mac,ip,hostname
+                    parts = line.strip().replace('dhcp-host=', '').split(',')
+                    if len(parts) >= 2:
+                         hosts.append({
+                             'mac': parts[0],
+                             'ip': parts[1] if len(parts) > 1 else '',
+                             'hostname': parts[2] if len(parts) > 2 else ''
+                         })
+    return hosts
+
+def save_static_host(mac, ip, hostname):
+    host_file = '/etc/dnsmasq.d/pioneer-hosts.conf'
+    # Read existing
+    lines = []
+    if os.path.exists(host_file):
+        with open(host_file, 'r') as f:
+            lines = f.readlines()
+    
+    # Check if MAC exists and update, else append
+    new_line = f"dhcp-host={mac},{ip},{hostname}\n"
+    found = False
+    for i, line in enumerate(lines):
+        if f"dhcp-host={mac}" in line:
+            lines[i] = new_line
+            found = True
+            break
+    
+    if not found:
+        lines.append(new_line)
+        
+    with open(host_file, 'w') as f:
+        f.writelines(lines)
+    
+    # Restart dnsmasq (or reload)
+    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
 
 # --- Routes ---
 
@@ -154,6 +221,11 @@ def network():
         ip_info = "Unknown"
     return render_template('network.html', ip=ip_info, hotspot_active=get_hotspot_status())
 
+@app.route('/dhcp')
+@login_required
+def dhcp():
+    return render_template('dhcp.html', leases=read_dhcp_leases(), static_hosts=read_static_hosts())
+
 @app.route('/docs')
 def docs():
     return render_template('docs.html')
@@ -165,6 +237,7 @@ def docs():
 def action():
     cmd = request.json.get('command')
     target = request.json.get('target') # For app install/remove
+    data = request.json.get('data') # For DHCP
     
     try:
         if cmd == 'reboot':
@@ -195,6 +268,10 @@ def action():
                 subprocess.run(['docker', 'compose', 'down'], cwd='/opt/pioneer/wordpress', check=False)
                 shutil.rmtree('/opt/pioneer/wordpress', ignore_errors=True)
                 return jsonify({'status': 'removed'})
+
+        elif cmd == 'add_static_lease':
+            save_static_host(data['mac'], data['ip'], data['hostname'])
+            return jsonify({'status': 'success'})
 
     except Exception as e:
         print(f"Action failed: {e}", file=sys.stderr)
