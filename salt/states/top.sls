@@ -7,6 +7,7 @@ base:
     - core.portainer  # Added Portainer for "App UI"
     - core.dashboard  # Added Pioneer Easy Dashboard
     - core.proxy      # Added Nginx Reverse Proxy
+    - core.landing    # Added Landing Page for 502 errors
 
   # The POC Role (Testing everything)
   'roles:poc':
