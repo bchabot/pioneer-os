@@ -75,7 +75,9 @@ cockpit_service:
                 var port = window.location.protocol === 'https:' ? '9443' : '9000';
                 var url = window.location.protocol + "//" + window.location.hostname + ":" + port;
                 
-                document.getElementById('link').href = url;
+                var link = document.getElementById('link');
+                link.href = url;
+                link.innerText = "Launch Portainer (" + url + ")";
                 document.getElementById('url-display').innerText = url;
             </script>
         </body>
