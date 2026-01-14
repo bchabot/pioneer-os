@@ -260,6 +260,16 @@ def action():
                 # Run Salt State in background
                 subprocess.Popen(['salt-call', '--local', 'state.apply', 'modules.wordpress'])
                 return jsonify({'status': 'installing'})
+        
+        elif cmd == 'start_app':
+             if target == 'wordpress':
+                subprocess.run(['docker', 'compose', 'start'], cwd='/opt/pioneer/wordpress', check=False)
+                return jsonify({'status': 'started'})
+
+        elif cmd == 'stop_app':
+             if target == 'wordpress':
+                subprocess.run(['docker', 'compose', 'stop'], cwd='/opt/pioneer/wordpress', check=False)
+                return jsonify({'status': 'stopped'})
 
         elif cmd == 'remove_app':
             if target == 'wordpress':

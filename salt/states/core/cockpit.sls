@@ -6,8 +6,6 @@ cockpit_packages:
       - cockpit
       - cockpit-networkmanager
       - cockpit-packagekit
-      # Try to install cockpit-docker if available, otherwise ignore failure? 
-      # No, better to stick to Portainer integration.
 
 cockpit_service:
   service.running:
@@ -25,16 +23,57 @@ cockpit_service:
   file.managed:
     - contents: |
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
-            <title>Redirecting to Portainer...</title>
-            <script>
-                // Redirect to the same hostname but port 9000
-                window.location.href = window.location.protocol + "//" + window.location.hostname + ":9000";
-            </script>
+            <meta charset="UTF-8">
+            <title>App Manager (Portainer)</title>
+            <style>
+                body {
+                    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+                    background-color: #f5f5f5;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    color: #333;
+                }
+                .container {
+                    text-align: center;
+                    background: white;
+                    padding: 40px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    max-width: 400px;
+                }
+                h2 { margin-top: 0; }
+                p { color: #666; margin-bottom: 25px; }
+                .btn {
+                    display: inline-block;
+                    padding: 12px 24px;
+                    background-color: #007bff;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    transition: background-color 0.2s;
+                }
+                .btn:hover { background-color: #0056b3; }
+            </style>
         </head>
         <body>
-            <p>Redirecting to Portainer App Manager...</p>
+            <div class="container">
+                <h2>Advanced App Manager</h2>
+                <p>
+                    Portainer provides advanced management for your Docker containers, images, and networks.
+                    It runs on a separate port (9000).
+                </p>
+                <a href="#" id="link" class="btn" target="_blank">Launch Portainer</a>
+            </div>
+            <script>
+                // Dynamically set the link to the current hostname port 9000
+                document.getElementById('link').href = window.location.protocol + "//" + window.location.hostname + ":9000";
+            </script>
         </body>
         </html>
 

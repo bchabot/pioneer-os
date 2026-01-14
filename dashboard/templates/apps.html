@@ -13,23 +13,30 @@
                 <p class="card-text">{{ app.description }}</p>
                 
                 {% if app.installed %}
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i> Installed
-                        {% if app.running %}
-                             & Running
-                        {% else %}
-                             (Stopped)
-                        {% endif %}
+                    <div class="alert alert-{{ 'success' if app.running else 'warning' }} mb-3">
+                        <i class="fas fa-{{ 'check-circle' if app.running else 'pause-circle' }}"></i>
+                        {{ 'Running' if app.running else 'Stopped' }}
                     </div>
                     
                     {% if app.running %}
-                        <div class="mb-3">
+                        <div class="mb-2">
                             <a href="{{ app.url }}" target="_blank" class="btn btn-primary w-100">
                                 <i class="fas fa-external-link-alt"></i> Open App
                             </a>
                         </div>
+                        <div class="mb-2">
+                             <button class="btn btn-outline-warning w-100" onclick="sendAction('stop_app', '{{ app.id }}')">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                        </div>
                         <div class="mb-3">
                             <small class="text-muted"><strong>Info:</strong> {{ app.login_info }}</small>
+                        </div>
+                    {% else %}
+                        <div class="mb-2">
+                             <button class="btn btn-success w-100" onclick="sendAction('start_app', '{{ app.id }}')">
+                                <i class="fas fa-play"></i> Start
+                            </button>
                         </div>
                     {% endif %}
                     
