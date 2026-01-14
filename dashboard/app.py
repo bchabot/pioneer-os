@@ -97,7 +97,7 @@ def get_installed_apps():
             "name": "WordPress", 
             "description": "Blog and Website Builder", 
             "port": 8080,
-            "url": f"http://{hostname}.local:8080", 
+            "url": f"https://{hostname}.local/", 
             "login_info": "Default User: user / bitnami (Check logs if changed)"
         },
         {
