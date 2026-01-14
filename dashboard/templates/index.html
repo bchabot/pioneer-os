@@ -38,7 +38,7 @@
                 {% if current_user.is_authenticated %}
                     <div class="row">
                         <div class="col-md-6">
-                            <a href="http://{{ request.host.split(':')[0] }}:9090" target="_blank" class="btn btn-outline-primary btn-xl">
+                            <a href="/advanced-admin/" target="_blank" class="btn btn-outline-primary btn-xl">
                                 <i class="fas fa-tools"></i> Advanced Admin<br><small>Open Cockpit</small>
                             </a>
                         </div>
@@ -57,7 +57,7 @@
                     <div class="text-center py-5">
                         <i class="fas fa-lock fa-3x text-muted mb-3"></i>
                         <h4>Restricted Access</h4>
-                        <p>Please <a href="/login">login</a> to manage power and settings.</p>
+                        <p>Please <a href="{{ url_for('login') }}">login</a> to manage power and settings.</p>
                     </div>
                 {% endif %}
             </div>

@@ -6,8 +6,11 @@ import os
 import json
 import psutil
 import sys
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+# Apply ProxyFix to trust X-Forwarded headers (Nginx)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 # Load Config
 CONFIG_FILE = 'config.json'
