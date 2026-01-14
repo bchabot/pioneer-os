@@ -282,14 +282,20 @@ def action():
 
         elif cmd == 'stop_app':
              if target == 'wordpress':
-                subprocess.run(['docker', 'compose', 'stop'], cwd='/opt/pioneer/wordpress', check=False)
+                res = subprocess.run(['/usr/bin/docker', 'compose', 'stop'], cwd='/opt/pioneer/wordpress', capture_output=True, text=True)
+                if res.returncode != 0:
+                    raise Exception(f"Docker stop failed: {res.stderr}")
                 return jsonify({'status': 'stopped'})
 
         elif cmd == 'remove_app':
             if target == 'wordpress':
-                # Stop container and remove dir (Simple removal)
-                # In real prod, we might want to backup data first
-                subprocess.run(['docker', 'compose', 'down'], cwd='/opt/pioneer/wordpress', check=False)
+                # Stop container and remove dir
+                res = subprocess.run(['/usr/bin/docker', 'compose', 'down'], cwd='/opt/pioneer/wordpress', capture_output=True, text=True)
+                if res.returncode != 0:
+                     # Log but continue cleanup
+                     with open('/var/log/pioneer-dashboard.log', 'a') as f:
+                        f.write(f"Docker down warning: {res.stderr}\n")
+                
                 shutil.rmtree('/opt/pioneer/wordpress', ignore_errors=True)
                 return jsonify({'status': 'removed'})
 
