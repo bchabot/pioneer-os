@@ -85,7 +85,7 @@ cockpit_service:
   file.managed:
     - contents: |
         {
-            "version": "1.0",
+            "version": "1.1",
             "tools": {
                 "portainer-link": {
                     "label": "App Manager (Portainer)",

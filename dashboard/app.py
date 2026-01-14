@@ -285,6 +285,8 @@ def action():
             return jsonify({'status': 'success'})
 
     except Exception as e:
+        with open('/var/log/pioneer-dashboard.log', 'a') as f:
+            f.write(f"Action failed: {str(e)}\n")
         print(f"Action failed: {e}", file=sys.stderr)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
