@@ -58,16 +58,20 @@
 <script>
     function sendAction(cmd, target=null) {
         if(confirm('Are you sure you want to perform this action?')) {
-            fetch('/api/action', {
+            fetch('{{ url_for("action") }}', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({command: cmd, target: target})
             })
             .then(r => r.json())
             .then(data => {
-                if(data.status === 'success') location.reload();
-                else alert('Action sent: ' + data.status);
-            });
+                if(['success', 'started', 'stopped', 'removed', 'installing'].includes(data.status)) {
+                    location.reload();
+                } else {
+                    alert('Action sent: ' + data.status);
+                }
+            })
+            .catch(err => alert('Network/Server Error: ' + err));
         }
     }
 </script>
