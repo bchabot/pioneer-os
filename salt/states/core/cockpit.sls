@@ -19,19 +19,21 @@ cockpit_service:
   file.directory:
     - makedirs: True
 
-/usr/share/cockpit/portainer-link/redirect.html:
+# Rename to launcher.html to force cache break
+/usr/share/cockpit/portainer-link/launcher.html:
   file.managed:
     - contents: |
         <!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>App Manager (Portainer)</title>
+            <title>App Manager</title>
             <style>
                 body {
-                    font-family: 'Open Sans', Helvetica, Arial, sans-serif;
+                    font-family: system-ui, -apple-system, sans-serif;
                     background-color: #f5f5f5;
                     display: flex;
+                    flex-direction: column;
                     justify-content: center;
                     align-items: center;
                     height: 100vh;
@@ -43,42 +45,64 @@ cockpit_service:
                     background: white;
                     padding: 40px;
                     border-radius: 8px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    max-width: 400px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    max-width: 450px;
                 }
-                h2 { margin-top: 0; }
-                p { color: #666; margin-bottom: 25px; }
+                h2 { margin-top: 0; color: #2c3e50; }
+                p { color: #666; margin-bottom: 25px; line-height: 1.5; }
                 .btn {
                     display: inline-block;
-                    padding: 12px 24px;
+                    padding: 15px 30px;
                     background-color: #007bff;
                     color: white;
                     text-decoration: none;
-                    border-radius: 4px;
+                    border-radius: 5px;
                     font-weight: bold;
+                    font-size: 16px;
                     transition: background-color 0.2s;
+                    border: none;
+                    cursor: pointer;
                 }
                 .btn:hover { background-color: #0056b3; }
+                .url-box {
+                    background: #eee;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                    font-family: monospace;
+                    font-size: 12px;
+                    margin-top: 20px;
+                    word-break: break-all;
+                }
             </style>
         </head>
         <body>
             <div class="container">
                 <h2>Advanced App Manager</h2>
                 <p>
-                    Portainer provides advanced management for your Docker containers, images, and networks.
+                    Manage your Docker containers (WordPress, etc.) using Portainer.
+                    This runs on a separate secure port.
                 </p>
-                <p><small>Target: <span id="url-display">...</span></small></p>
-                <a href="#" id="link" class="btn" target="_blank">Launch Portainer</a>
-            </div>
-            <script>
-                // Use port 9443 for HTTPS (Cockpit default), or 9000 for HTTP
-                var port = window.location.protocol === 'https:' ? '9443' : '9000';
-                var url = window.location.protocol + "//" + window.location.hostname + ":" + port;
                 
-                var link = document.getElementById('link');
-                link.href = url;
-                link.innerText = "Launch Portainer (" + url + ")";
-                document.getElementById('url-display').innerText = url;
+                <button id="btn-launch" class="btn" onclick="launch()">Launch Portainer</button>
+                
+                <div class="url-box">Target: <span id="target-url">Detecting...</span></div>
+            </div>
+
+            <script>
+                function getPortainerUrl() {
+                    var protocol = window.location.protocol;
+                    var hostname = window.location.hostname;
+                    var port = (protocol === 'https:') ? '9443' : '9000';
+                    return protocol + "//" + hostname + ":" + port;
+                }
+
+                function launch() {
+                    var url = getPortainerUrl();
+                    window.open(url, '_blank');
+                }
+
+                // Update UI on load
+                document.getElementById('target-url').innerText = getPortainerUrl();
             </script>
         </body>
         </html>
@@ -87,11 +111,11 @@ cockpit_service:
   file.managed:
     - contents: |
         {
-            "version": "1.1",
+            "version": "1.2",
             "tools": {
                 "portainer-link": {
                     "label": "App Manager (Portainer)",
-                    "path": "redirect.html",
+                    "path": "launcher.html",
                     "priority": 20
                 }
             }
