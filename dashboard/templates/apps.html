@@ -14,9 +14,19 @@
                 
                 {% if app.installed %}
                     <button class="btn btn-success disabled">Installed</button>
-                    <!-- <button class="btn btn-sm btn-outline-danger float-end" onclick="sendAction('remove_app', '{{ app.id }}')">Remove</button> -->
+                    {% if app.running %}
+                         <span class="badge bg-success">Running</span>
+                    {% else %}
+                         <span class="badge bg-warning text-dark">Stopped</span>
+                    {% endif %}
+                    <hr>
+                    <button class="btn btn-sm btn-outline-danger w-100" onclick="sendAction('remove_app', '{{ app.id }}')">
+                        <i class="fas fa-trash"></i> Uninstall
+                    </button>
                 {% else %}
-                    <button class="btn btn-primary" onclick="sendAction('install_app', '{{ app.id }}')">Install</button>
+                    <button class="btn btn-primary w-100" onclick="sendAction('install_app', '{{ app.id }}')">
+                        <i class="fas fa-download"></i> Install
+                    </button>
                 {% endif %}
             </div>
         </div>

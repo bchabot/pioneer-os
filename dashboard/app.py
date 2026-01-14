@@ -5,6 +5,7 @@ import shutil
 import os
 import json
 import psutil
+import sys
 
 app = Flask(__name__)
 
@@ -41,32 +42,68 @@ def check_internet():
         return False
 
 def get_hotspot_status():
-    # Check if a connection with type 'wifi' and mode 'ap' is active
     try:
-        # Simplistic check: look for an active connection named 'PIONEER_SETUP' or similar
-        # A better way is to parse nmcli -t -f NAME,TYPE,ACTIVE connection show
-        out = subprocess.check_output(['nmcli', '-t', '-f', 'TYPE,ACTIVE,MODE', 'connection', 'show', '--active']).decode()
-        # Look for wifi:yes:ap (This depends on exact nmcli output fields, keep it simple for now)
-        # We'll just check if the known hotspot name is active
+        # Check if PIONEER_SETUP is active
         out_name = subprocess.check_output(['nmcli', '-t', '-f', 'NAME,ACTIVE', 'connection', 'show']).decode()
         if "PIONEER_SETUP:yes" in out_name:
             return True
         return False
-    except:
+    except Exception as e:
+        print(f"Error checking hotspot: {e}", file=sys.stderr)
+        return False
+
+def ensure_hotspot_exists():
+    """Creates the hotspot connection if it doesn't exist."""
+    try:
+        # Check if connection exists (active or not)
+        out = subprocess.check_output(['nmcli', '-t', '-f', 'NAME', 'connection', 'show']).decode()
+        if "PIONEER_SETUP" not in out:
+            print("Creating Hotspot PIONEER_SETUP...", file=sys.stderr)
+            # Try to find a wireless interface
+            iface = "wlan0" # Default fallback
+            try:
+                 # Find first wireless device
+                devs = subprocess.check_output(['nmcli', '-t', '-f', 'DEVICE,TYPE', 'device']).decode().split('\n')
+                for line in devs:
+                    if ':wifi' in line:
+                        iface = line.split(':')[0]
+                        break
+            except:
+                pass
+            
+            subprocess.check_call([
+                'nmcli', 'con', 'add', 'type', 'wifi', 'ifname', iface, 'con-name', 'PIONEER_SETUP',
+                'autoconnect', 'yes', 'ssid', 'PIONEER_SETUP'
+            ])
+            subprocess.check_call([
+                'nmcli', 'con', 'modify', 'PIONEER_SETUP', '802-11-wireless.mode', 'ap',
+                '802-11-wireless.band', 'bg', 'ipv4.method', 'shared'
+            ])
+            subprocess.check_call([
+                'nmcli', 'con', 'modify', 'PIONEER_SETUP', 'wifi-sec.key-mgmt', 'wpa-psk',
+                'wifi-sec.psk', 'pioneer123'
+            ])
+            return True
+    except Exception as e:
+        print(f"Failed to create hotspot: {e}", file=sys.stderr)
         return False
 
 def get_installed_apps():
     apps = [
         {"id": "wordpress", "name": "WordPress", "description": "Blog and Website Builder", "port": 8080},
-        {"id": "filebrowser", "name": "File Browser", "description": "Web-based File Manager", "port": 8081}
+        # {"id": "filebrowser", "name": "File Browser", "description": "Web-based File Manager", "port": 8081}
     ]
-    # Check if they are running (simple docker check)
     try:
+        # Check running containers
         docker_ps = subprocess.check_output(['docker', 'ps', '--format', '{{.Names}}']).decode()
         for app in apps:
-            app['installed'] = app['id'] in docker_ps # Very rough check
-            # Better check: Does the state file exist? Or check specific container name
-    except:
+            # Check if container is running OR if data directory exists (installed but stopped)
+            is_running = app['id'] in docker_ps
+            is_installed = os.path.exists(f"/opt/pioneer/{app['id']}")
+            app['installed'] = is_installed
+            app['running'] = is_running
+    except Exception as e:
+        print(f"Error checking apps: {e}", file=sys.stderr)
         pass
     return apps
 
@@ -74,8 +111,11 @@ def get_installed_apps():
 
 @app.route('/')
 def index():
-    disk_total, disk_used, disk_free = shutil.disk_usage("/")
-    disk_percent = (disk_used / disk_total) * 100
+    try:
+        disk_total, disk_used, disk_free = shutil.disk_usage("/")
+        disk_percent = (disk_used / disk_total) * 100
+    except:
+        disk_percent = 0
     
     return render_template('index.html', 
                          disk_percent=int(disk_percent),
@@ -108,7 +148,6 @@ def apps():
 @app.route('/network')
 @login_required
 def network():
-    # Get IP info
     try:
         ip_info = subprocess.check_output(['hostname', '-I']).decode().strip()
     except:
@@ -127,33 +166,39 @@ def action():
     cmd = request.json.get('command')
     target = request.json.get('target') # For app install/remove
     
-    if cmd == 'reboot':
-        subprocess.Popen(['shutdown', '-r', 'now'])
-        return jsonify({'status': 'rebooting'})
-    
-    elif cmd == 'shutdown':
-        subprocess.Popen(['shutdown', '-h', 'now'])
-        return jsonify({'status': 'shutting_down'})
-    
-    elif cmd == 'toggle_hotspot':
-        # Toggle logic
-        is_on = get_hotspot_status()
-        action = 'down' if is_on else 'up'
-        # Assume hotspot connection name is PIONEER_SETUP
-        try:
+    try:
+        if cmd == 'reboot':
+            subprocess.Popen(['shutdown', '-r', 'now'])
+            return jsonify({'status': 'rebooting'})
+        
+        elif cmd == 'shutdown':
+            subprocess.Popen(['shutdown', '-h', 'now'])
+            return jsonify({'status': 'shutting_down'})
+        
+        elif cmd == 'toggle_hotspot':
+            ensure_hotspot_exists()
+            is_on = get_hotspot_status()
+            action = 'down' if is_on else 'up'
             subprocess.run(['nmcli', 'connection', action, 'PIONEER_SETUP'], check=True)
             return jsonify({'status': 'success', 'new_state': not is_on})
-        except:
-            return jsonify({'status': 'error'}), 500
 
-    elif cmd == 'install_app':
-        # Run Salt State
-        # Warning: This blocks. In a real app, use a background task (Celery/Redis or simple Thread)
-        # For MVP, we will block or spawn a detatched process
-        if target == 'wordpress':
-            # subprocess.Popen(['salt-call', '--local', 'state.apply', 'modules.wordpress'])
-            pass
-        return jsonify({'status': 'installing'})
+        elif cmd == 'install_app':
+            if target == 'wordpress':
+                # Run Salt State in background
+                subprocess.Popen(['salt-call', '--local', 'state.apply', 'modules.wordpress'])
+                return jsonify({'status': 'installing'})
+
+        elif cmd == 'remove_app':
+            if target == 'wordpress':
+                # Stop container and remove dir (Simple removal)
+                # In real prod, we might want to backup data first
+                subprocess.run(['docker', 'compose', 'down'], cwd='/opt/pioneer/wordpress', check=False)
+                shutil.rmtree('/opt/pioneer/wordpress', ignore_errors=True)
+                return jsonify({'status': 'removed'})
+
+    except Exception as e:
+        print(f"Action failed: {e}", file=sys.stderr)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
     return jsonify({'status': 'unknown_command'}), 400
 

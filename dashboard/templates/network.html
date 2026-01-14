@@ -3,21 +3,36 @@
 {% block content %}
 <h2>Network Settings</h2>
 
-<div class="card mt-4">
-    <div class="card-body">
-        <h5 class="card-title">Wi-Fi Hotspot</h5>
-        <p>Status: <strong>{{ 'Active' if hotspot_active else 'Inactive' }}</strong></p>
-        
-        <button class="btn btn-{{ 'danger' if hotspot_active else 'success' }}" onclick="sendAction('toggle_hotspot')">
-            {{ 'Turn OFF' if hotspot_active else 'Turn ON' }}
-        </button>
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">Wi-Fi Hotspot</h5>
+                <p class="mb-1">SSID: <strong>PIONEER_SETUP</strong></p>
+                <p class="mb-3">Password: <strong>pioneer123</strong></p>
+                
+                <p>Status: 
+                    {% if hotspot_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </p>
+                
+                <button class="btn btn-{{ 'danger' if hotspot_active else 'success' }} w-100" onclick="sendAction('toggle_hotspot')">
+                    {{ 'Turn OFF' if hotspot_active else 'Turn ON' }}
+                </button>
+            </div>
+        </div>
     </div>
-</div>
 
-<div class="card mt-4">
-    <div class="card-body">
-        <h5 class="card-title">IP Information</h5>
-        <pre>{{ ip }}</pre>
+    <div class="col-md-6">
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">IP Information</h5>
+                <pre class="bg-light p-2 rounded">{{ ip }}</pre>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
