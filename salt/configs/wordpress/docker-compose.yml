@@ -12,14 +12,8 @@ services:
       WORDPRESS_DB_PASSWORD: securepassword
       WORDPRESS_DB_NAME: wordpress
       WORDPRESS_CONFIG_EXTRA: |
-        if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strpos($_SERVER['HTTP_X_FORWARDED_PROTO'], 'https') !== false) {
             $_SERVER['HTTPS'] = 'on';
-        }
-        if (!defined('WP_HOME')) {
-            define('WP_HOME', 'https://' . $_SERVER['HTTP_HOST']);
-        }
-        if (!defined('WP_SITEURL')) {
-            define('WP_SITEURL', 'https://' . $_SERVER['HTTP_HOST']);
         }
     volumes:
       - ./wp-content:/var/www/html/wp-content
