@@ -8,6 +8,25 @@
     - mode: 755
     - makedirs: True
 
+# Create subdirectories with open permissions to avoid Docker bind mount issues
+/opt/pioneer/wordpress/wp-content:
+  file.directory:
+    - user: root
+    - group: root
+    - mode: 777
+    - makedirs: True
+    - require:
+      - file: /opt/pioneer/wordpress
+
+/opt/pioneer/wordpress/db-data:
+  file.directory:
+    - user: root
+    - group: root
+    - mode: 777
+    - makedirs: True
+    - require:
+      - file: /opt/pioneer/wordpress
+
 # Deploy Docker Compose for WordPress + DB
 /opt/pioneer/wordpress/docker-compose.yml:
   file.managed:
@@ -21,15 +40,6 @@ wordpress_service:
     - cwd: /opt/pioneer/wordpress
     - onchanges:
       - file: /opt/pioneer/wordpress/docker-compose.yml
-
-# Force the database to use the correct HTTPS URL
-# This prevents WordPress from generating redirects to the old :8080 port.
-update_wordpress_urls:
-  cmd.run:
-    - name: |
-        docker exec wordpress-wordpress-1 wp option update home "https://pioneer-core.local/"
-        docker exec wordpress-wordpress-1 wp option update siteurl "https://pioneer-core.local/"
     - require:
-      - cmd: wordpress_service
-    # Only run if the siteurl is incorrect
-    - unless: docker exec wordpress-wordpress-1 wp option get siteurl | grep "https://pioneer-core.local/"
+      - file: /opt/pioneer/wordpress/wp-content
+      - file: /opt/pioneer/wordpress/db-data
