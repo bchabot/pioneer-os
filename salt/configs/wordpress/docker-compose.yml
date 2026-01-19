@@ -2,7 +2,7 @@ version: '3.1'
 
 services:
   wordpress:
-    image: wordpress:6.4-apache
+    image: wordpress:latest
     restart: always
     ports:
       - 8080:80
@@ -11,10 +11,8 @@ services:
       WORDPRESS_DB_USER: pioneer
       WORDPRESS_DB_PASSWORD: securepassword
       WORDPRESS_DB_NAME: wordpress
-      WORDPRESS_CONFIG_EXTRA: |
-        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strpos($_SERVER['HTTP_X_FORWARDED_PROTO'], 'https') !== false) {
-            $_SERVER['HTTPS'] = 'on';
-        }
+      WORDPRESS_DEBUG: 1
+      WORDPRESS_DEBUG_DISPLAY: 'true'
     volumes:
       - ./wp-content:/var/www/html/wp-content
 
