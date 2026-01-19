@@ -12,7 +12,17 @@
                 <h5 class="card-title">{{ app.name }}</h5>
                 <p class="card-text">{{ app.description }}</p>
                 
-                {% if app.installed %}
+                {% if app.installing %}
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-cog fa-spin"></i> Installing...
+                    </div>
+                    <button class="btn btn-secondary w-100" disabled>
+                        <i class="fas fa-download"></i> Installing...
+                    </button>
+                    <script>
+                        setTimeout(function(){ location.reload(); }, 5000);
+                    </script>
+                {% elif app.installed %}
                     <div class="alert alert-{{ 'success' if app.running else 'warning' }} mb-3">
                         <i class="fas fa-{{ 'check-circle' if app.running else 'pause-circle' }}"></i>
                         {{ 'Running' if app.running else 'Stopped' }}

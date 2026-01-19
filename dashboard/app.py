@@ -91,6 +91,22 @@ def ensure_hotspot_exists():
         print(f"Failed to create hotspot: {e}", file=sys.stderr)
         return False
 
+def is_installing(app_id):
+    """Checks if a salt-call process is running for the given app_id."""
+    try:
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                cmdline = proc.info['cmdline']
+                if cmdline:
+                    cmd_str = " ".join(cmdline)
+                    if 'salt-call' in cmd_str and f"modules.{app_id}" in cmd_str:
+                        return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+    except Exception:
+        pass
+    return False
+
 def get_installed_apps():
     # Assuming standard ports. In production, read from docker compose labels.
     hostname = os.uname()[1]
@@ -120,8 +136,17 @@ def get_installed_apps():
             # Check if container is running OR if data directory exists (installed but stopped)
             is_running = app['id'] in docker_ps
             is_installed = os.path.exists(f"/opt/pioneer/{app['id']}")
+            installing = is_installing(app['id'])
+            
             app['installed'] = is_installed
             app['running'] = is_running
+            app['installing'] = installing
+            
+            # If installing, override installed/running to prevent confusion
+            if installing:
+                app['installed'] = False
+                app['running'] = False
+                
     except Exception as e:
         print(f"Error checking apps: {e}", file=sys.stderr)
         pass

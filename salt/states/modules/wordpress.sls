@@ -11,18 +11,18 @@
 # Create subdirectories with open permissions to avoid Docker bind mount issues
 /opt/pioneer/wordpress/wp-content:
   file.directory:
-    - user: root
-    - group: root
-    - mode: 777
+    - user: 33
+    - group: 33
+    - mode: 775
     - makedirs: True
     - require:
       - file: /opt/pioneer/wordpress
 
 /opt/pioneer/wordpress/db-data:
   file.directory:
-    - user: root
-    - group: root
-    - mode: 777
+    - user: 999
+    - group: 999
+    - mode: 775
     - makedirs: True
     - require:
       - file: /opt/pioneer/wordpress
