@@ -94,8 +94,12 @@ def ensure_hotspot_exists():
 def is_installing(app_id):
     """Checks if a salt-call process is running for the given app_id."""
     try:
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'status']):
             try:
+                # Ignore zombie processes (finished but not reaped)
+                if proc.info['status'] == psutil.STATUS_ZOMBIE:
+                    continue
+
                 cmdline = proc.info['cmdline']
                 if cmdline:
                     cmd_str = " ".join(cmdline)
