@@ -175,30 +175,57 @@ def read_dhcp_leases():
 DHCP_CONF = '/etc/dnsmasq.d/pioneer-dhcp.conf'
 DNS_CONF = '/etc/dnsmasq.d/pioneer-dns.conf'
 
+def reload_dnsmasq():
+    """Reloads dnsmasq configuration safely."""
+    try:
+        # Check config syntax first
+        subprocess.check_call(['dnsmasq', '--test'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Try reload
+        subprocess.check_call(['systemctl', 'reload', 'dnsmasq'])
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to reload dnsmasq: {e}", file=sys.stderr)
+        # Fallback to restart if reload fails or isn't supported (though reload is standard)
+        try:
+             subprocess.check_call(['systemctl', 'restart', 'dnsmasq'])
+        except Exception as e2:
+             print(f"Failed to restart dnsmasq: {e2}", file=sys.stderr)
+             raise Exception("Failed to apply network changes (dnsmasq error)")
+
+def ensure_config_dir():
+    if not os.path.exists('/etc/dnsmasq.d'):
+        os.makedirs('/etc/dnsmasq.d')
+
 def read_dhcp_reservations():
     res = []
     if os.path.exists(DHCP_CONF):
         with open(DHCP_CONF, 'r') as f:
             for line in f:
-                if line.startswith('dhcp-host='):
+                line = line.strip()
+                if line.startswith('dhcp-host=') and not line.startswith('#'):
                     # dhcp-host=mac,ip,[hostname]
-                    # Note: hostname is optional in dhcp-host, but if present it sets it.
-                    parts = line.strip().replace('dhcp-host=', '').split(',')
-                    res.append({
-                        'mac': parts[0],
-                        'ip': parts[1] if len(parts) > 1 else '',
-                        'hostname': parts[2] if len(parts) > 2 else ''
-                    })
+                    try:
+                        parts = line.replace('dhcp-host=', '').split(',')
+                        res.append({
+                            'mac': parts[0],
+                            'ip': parts[1] if len(parts) > 1 else '',
+                            'hostname': parts[2] if len(parts) > 2 else ''
+                        })
+                    except:
+                        continue
     return res
 
 def save_dhcp_reservation(mac, ip, hostname=""):
+    ensure_config_dir()
+    mac = mac.strip()
+    ip = ip.strip()
+    hostname = hostname.strip()
+    
     lines = []
     if os.path.exists(DHCP_CONF):
         with open(DHCP_CONF, 'r') as f:
             lines = f.readlines()
     
-    # Format: dhcp-host=MAC,IP,HOSTNAME (optional)
-    # Using set logic: if MAC exists, update it.
+    # Format: dhcp-host=MAC,IP,HOSTNAME
     entry = f"dhcp-host={mac},{ip}"
     if hostname:
         entry += f",{hostname}"
@@ -216,10 +243,13 @@ def save_dhcp_reservation(mac, ip, hostname=""):
         
     with open(DHCP_CONF, 'w') as f:
         f.writelines(lines)
-    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
+    
+    reload_dnsmasq()
 
 def delete_dhcp_reservation(mac):
     if not os.path.exists(DHCP_CONF): return
+    mac = mac.strip()
+    
     with open(DHCP_CONF, 'r') as f:
         lines = f.readlines()
     
@@ -227,21 +257,29 @@ def delete_dhcp_reservation(mac):
         for line in lines:
             if f"dhcp-host={mac}" not in line:
                 f.write(line)
-    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
+    
+    reload_dnsmasq()
 
 def read_dns_records():
     recs = []
     if os.path.exists(DNS_CONF):
         with open(DNS_CONF, 'r') as f:
             for line in f:
-                if line.startswith('host-record='):
-                    # host-record=hostname,ip
-                    parts = line.strip().replace('host-record=', '').split(',')
-                    if len(parts) >= 2:
-                        recs.append({'hostname': parts[0], 'ip': parts[1]})
+                line = line.strip()
+                if line.startswith('host-record=') and not line.startswith('#'):
+                    try:
+                        parts = line.replace('host-record=', '').split(',')
+                        if len(parts) >= 2:
+                            recs.append({'hostname': parts[0], 'ip': parts[1]})
+                    except:
+                        continue
     return recs
 
 def save_dns_record(hostname, ip):
+    ensure_config_dir()
+    hostname = hostname.strip()
+    ip = ip.strip()
+    
     lines = []
     if os.path.exists(DNS_CONF):
         with open(DNS_CONF, 'r') as f:
@@ -262,10 +300,13 @@ def save_dns_record(hostname, ip):
         
     with open(DNS_CONF, 'w') as f:
         f.writelines(lines)
-    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
+    
+    reload_dnsmasq()
 
 def delete_dns_record(hostname):
     if not os.path.exists(DNS_CONF): return
+    hostname = hostname.strip()
+    
     with open(DNS_CONF, 'r') as f:
         lines = f.readlines()
     
@@ -273,7 +314,8 @@ def delete_dns_record(hostname):
         for line in lines:
             if not line.startswith(f"host-record={hostname},"):
                 f.write(line)
-    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
+    
+    reload_dnsmasq()
 
 # --- Routes ---
 

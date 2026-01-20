@@ -260,51 +260,71 @@
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({command: cmd, data: data})
-        }).then(r => r.json());
+        })
+        .then(r => r.json())
+        .then(res => {
+            if(res.status === 'success') {
+                return res;
+            } else {
+                throw new Error(res.message || res.status);
+            }
+        });
     }
 
     function addDHCP() {
+        const btn = document.querySelector('#dhcpForm button');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+
         const data = {
             mac: document.getElementById('dhcp_mac').value,
             ip: document.getElementById('dhcp_ip').value,
             hostname: document.getElementById('dhcp_hostname').value
         };
-        if(confirm('Save DHCP reservation?')) {
-            apiCall('add_dhcp_reservation', data).then(res => {
-                if(res.status === 'success') location.reload();
-                else alert('Error: ' + (res.message || res.status));
+
+        apiCall('add_dhcp_reservation', data)
+            .then(() => location.reload())
+            .catch(err => {
+                alert('Error: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = originalText;
             });
-        }
     }
 
     function deleteDHCP(mac) {
         if(confirm('Delete reservation for ' + mac + '?')) {
-            apiCall('del_dhcp_reservation', {mac: mac}).then(res => {
-                if(res.status === 'success') location.reload();
-                else alert('Error: ' + res.status);
-            });
+            apiCall('del_dhcp_reservation', {mac: mac})
+                .then(() => location.reload())
+                .catch(err => alert('Error: ' + err.message));
         }
     }
 
     function addDNS() {
+        const btn = document.querySelector('#dnsForm button');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = "Saving...";
+
         const data = {
             hostname: document.getElementById('dns_hostname').value,
             ip: document.getElementById('dns_ip').value
         };
-        if(confirm('Save DNS record?')) {
-            apiCall('add_dns_record', data).then(res => {
-                if(res.status === 'success') location.reload();
-                else alert('Error: ' + (res.message || res.status));
+
+        apiCall('add_dns_record', data)
+            .then(() => location.reload())
+            .catch(err => {
+                alert('Error: ' + err.message);
+                btn.disabled = false;
+                btn.innerText = originalText;
             });
-        }
     }
 
     function deleteDNS(hostname) {
          if(confirm('Delete DNS record for ' + hostname + '?')) {
-            apiCall('del_dns_record', {hostname: hostname}).then(res => {
-                if(res.status === 'success') location.reload();
-                else alert('Error: ' + res.status);
-            });
+            apiCall('del_dns_record', {hostname: hostname})
+                .then(() => location.reload())
+                .catch(err => alert('Error: ' + err.message));
         }
     }
 
@@ -314,34 +334,33 @@
             password: document.getElementById('hs_pass').value
         };
         if(confirm('Update hotspot settings? This will disconnect current clients.')) {
-            apiCall('update_hotspot', data).then(res => {
-                if(res.status === 'success') alert('Hotspot updated. Please reconnect.');
-                else alert('Error: ' + (res.message || res.status));
-            });
+            apiCall('update_hotspot', data)
+                .then(() => alert('Hotspot updated. Please reconnect.'))
+                .catch(err => alert('Error: ' + err.message));
         }
     }
 
     function updateHostname() {
         const name = document.getElementById('sys_hostname').value;
         if(confirm('Change hostname to ' + name + '?')) {
-            apiCall('set_hostname', {hostname: name}).then(res => {
-                if(res.status === 'success') {
+            apiCall('set_hostname', {hostname: name})
+                .then(res => {
                     alert(res.message);
                     location.reload();
-                } else alert('Error: ' + (res.message || res.status));
-            });
+                })
+                .catch(err => alert('Error: ' + err.message));
         }
     }
 
     function updatePassword() {
         const pass = document.getElementById('sys_password').value;
         if(confirm('Change admin password?')) {
-            apiCall('update_password', {password: pass}).then(res => {
-                if(res.status === 'success') {
+            apiCall('update_password', {password: pass})
+                .then(() => {
                     alert('Password changed. Please login again.');
                     location.href = '/logout';
-                } else alert('Error: ' + (res.message || res.status));
-            });
+                })
+                .catch(err => alert('Error: ' + err.message));
         }
     }
 </script>
