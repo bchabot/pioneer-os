@@ -1,38 +1,264 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Network Settings</h2>
+<h2>Network Management</h2>
 
 <div class="row">
-    <div class="col-md-6">
-        <div class="card mt-4">
+    <!-- Hotspot Config -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-wifi"></i> Hotspot Settings
+            </div>
             <div class="card-body">
-                <h5 class="card-title">Wi-Fi Hotspot</h5>
-                <p class="mb-1">SSID: <strong>PIONEER_SETUP</strong></p>
-                <p class="mb-3">Password: <strong>pioneer123</strong></p>
-                
-                <p>Status: 
-                    {% if hotspot_active %}
-                        <span class="badge bg-success">Active</span>
-                    {% else %}
-                        <span class="badge bg-secondary">Inactive</span>
-                    {% endif %}
-                </p>
-                
-                <button class="btn btn-{{ 'danger' if hotspot_active else 'success' }} w-100" onclick="sendAction('toggle_hotspot')">
-                    {{ 'Turn OFF' if hotspot_active else 'Turn ON' }}
-                </button>
+                <div class="mb-3">
+                    <label>Status</label>
+                    <div class="d-flex align-items-center">
+                        {% if hotspot_active %}
+                            <span class="badge bg-success me-2">Active</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="sendAction('toggle_hotspot')">Turn Off</button>
+                        {% else %}
+                            <span class="badge bg-secondary me-2">Inactive</span>
+                            <button class="btn btn-sm btn-outline-success" onclick="sendAction('toggle_hotspot')">Turn On</button>
+                        {% endif %}
+                    </div>
+                </div>
+                <form onsubmit="event.preventDefault(); updateHotspot();">
+                    <div class="mb-2">
+                        <label>SSID</label>
+                        <input type="text" id="hs_ssid" class="form-control" placeholder="PIONEER_SETUP" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Password (min 8 chars)</label>
+                        <input type="password" id="hs_pass" class="form-control" placeholder="********" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Update & Restart Hotspot</button>
+                </form>
             </div>
         </div>
     </div>
 
-    <div class="col-md-6">
-        <div class="card mt-4">
+    <!-- Interface Info -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-secondary text-white">
+                <i class="fas fa-network-wired"></i> Interface Status
+            </div>
             <div class="card-body">
-                <h5 class="card-title">IP Information</h5>
-                <pre class="bg-light p-2 rounded">{{ ip }}</pre>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>IP</th>
+                                <th>State</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for iface in interfaces %}
+                            <tr>
+                                <td>{{ iface.name }}<br><small class="text-muted">{{ iface.mac }}</small></td>
+                                <td>{{ iface.ip }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if iface.state == 'up' or iface.state == 'UP' else 'secondary' }}">
+                                        {{ iface.state }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="3">No interfaces found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<div class="row">
+    <!-- DHCP Leases -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-users"></i> Connected Devices (DHCP)
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Hostname</th>
+                                <th>IP Address</th>
+                                <th>MAC Address</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for lease in leases %}
+                            <tr>
+                                <td>{{ lease.hostname }}</td>
+                                <td>{{ lease.ip }}</td>
+                                <td>{{ lease.mac }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="prefill('{{ lease.mac }}', '{{ lease.ip }}', '{{ lease.hostname }}')">
+                                        Reserve
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4">No active leases found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Settings (Hostname / Admin Pass) -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-server"></i> System Identity
+            </div>
+            <div class="card-body">
+                <form onsubmit="event.preventDefault(); updateHostname();" class="mb-4">
+                    <label>Hostname</label>
+                    <div class="input-group">
+                        <input type="text" id="sys_hostname" class="form-control" placeholder="pioneer-node" required>
+                        <button class="btn btn-outline-secondary" type="submit">Set</button>
+                    </div>
+                    <small class="text-muted">Requires reboot.</small>
+                </form>
+
+                <hr>
+
+                <form onsubmit="event.preventDefault(); updatePassword();">
+                    <label>Admin Password</label>
+                    <div class="input-group">
+                        <input type="password" id="sys_password" class="form-control" placeholder="New Password" required>
+                        <button class="btn btn-outline-danger" type="submit">Change</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Static Reservations -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-warning text-dark">
+                <i class="fas fa-thumbtack"></i> Static Reservations
+            </div>
+            <div class="card-body">
+                <div class="table-responsive mb-3" style="max-height: 200px; overflow-y: auto;">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Hostname</th>
+                                <th>IP</th>
+                                <th>MAC</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for host in static_hosts %}
+                            <tr>
+                                <td>{{ host.hostname }}</td>
+                                <td>{{ host.ip }}</td>
+                                <td>{{ host.mac }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h6>Add Reservation</h6>
+                <form id="reservationForm" onsubmit="event.preventDefault(); addReservation();">
+                    <div class="mb-2">
+                        <input type="text" id="res_hostname" class="form-control form-control-sm" placeholder="Hostname" required>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="text" id="res_ip" class="form-control form-control-sm" placeholder="IP Address" required>
+                        </div>
+                        <div class="col-6">
+                            <input type="text" id="res_mac" class="form-control form-control-sm" placeholder="MAC Address" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm w-100 mt-2">Save Reservation</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function prefill(mac, ip, hostname) {
+        document.getElementById('res_mac').value = mac;
+        document.getElementById('res_ip').value = ip;
+        document.getElementById('res_hostname').value = hostname;
+        document.getElementById('res_hostname').focus();
+    }
+
+    function apiCall(cmd, data) {
+        return fetch('/api/action', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({command: cmd, data: data})
+        }).then(r => r.json());
+    }
+
+    function addReservation() {
+        const data = {
+            hostname: document.getElementById('res_hostname').value,
+            ip: document.getElementById('res_ip').value,
+            mac: document.getElementById('res_mac').value
+        };
+        if(confirm('Save reservation?')) {
+            apiCall('add_static_lease', data).then(res => {
+                if(res.status === 'success') location.reload();
+                else alert('Error: ' + res.status);
+            });
+        }
+    }
+
+    function updateHotspot() {
+        const data = {
+            ssid: document.getElementById('hs_ssid').value,
+            password: document.getElementById('hs_pass').value
+        };
+        if(confirm('Update hotspot settings? This will disconnect current clients.')) {
+            apiCall('update_hotspot', data).then(res => {
+                if(res.status === 'success') alert('Hotspot updated. Please reconnect.');
+                else alert('Error: ' + (res.message || res.status));
+            });
+        }
+    }
+
+    function updateHostname() {
+        const name = document.getElementById('sys_hostname').value;
+        if(confirm('Change hostname to ' + name + '?')) {
+            apiCall('set_hostname', {hostname: name}).then(res => {
+                if(res.status === 'success') {
+                    alert(res.message);
+                    location.reload();
+                } else alert('Error: ' + (res.message || res.status));
+            });
+        }
+    }
+
+    function updatePassword() {
+        const pass = document.getElementById('sys_password').value;
+        if(confirm('Change admin password?')) {
+            apiCall('update_password', {password: pass}).then(res => {
+                if(res.status === 'success') {
+                    alert('Password changed. Please login again.');
+                    location.href = '/logout';
+                } else alert('Error: ' + (res.message || res.status));
+            });
+        }
+    }
+</script>
 {% endblock %}

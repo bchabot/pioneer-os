@@ -228,7 +228,8 @@ def index():
                          disk_percent=int(disk_percent),
                          hostname=os.uname()[1],
                          internet=check_internet(),
-                         hotspot=get_hotspot_status())
+                         hotspot=get_hotspot_status(),
+                         apps=get_installed_apps())
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -255,16 +256,41 @@ def apps():
 @app.route('/network')
 @login_required
 def network():
+    # Get detailed interface info
+    interfaces = []
     try:
-        ip_info = subprocess.check_output(['hostname', '-I']).decode().strip()
+        # Try ip -j first (requires iproute2-json usually, but standard ip usually supports it now)
+        # If not, we might need manual parsing. Let's try simple manual parsing of 'ip addr' if -j fails
+        # or just basic parsing.
+        # Check if json output is supported
+        try:
+            output = subprocess.check_output(['ip', '-j', 'addr'], stderr=subprocess.DEVNULL).decode()
+            data = json.loads(output)
+            for iface in data:
+                if iface['ifname'] == 'lo': continue
+                ipv4 = next((a['local'] for a in iface.get('addr_info', []) if a['family'] == 'inet'), 'No IP')
+                interfaces.append({
+                    'name': iface['ifname'],
+                    'mac': iface.get('address', ''),
+                    'ip': ipv4,
+                    'state': iface['operstate']
+                })
+        except:
+             # Fallback to simple shell
+             output = subprocess.check_output(['ip', '-o', 'addr']).decode()
+             for line in output.split('\n'):
+                 if 'inet ' in line and ' lo ' not in line:
+                     parts = line.split()
+                     # 1: lo    inet 127.0.0.1/8 ...
+                     interfaces.append({'name': parts[1], 'ip': parts[3].split('/')[0], 'state': 'up', 'mac': 'Unknown'})
     except:
-        ip_info = "Unknown"
-    return render_template('network.html', ip=ip_info, hotspot_active=get_hotspot_status())
+        pass
 
-@app.route('/dhcp')
-@login_required
-def dhcp():
-    return render_template('dhcp.html', leases=read_dhcp_leases(), static_hosts=read_static_hosts())
+    return render_template('network.html', 
+                         interfaces=interfaces, 
+                         hotspot_active=get_hotspot_status(),
+                         leases=read_dhcp_leases(), 
+                         static_hosts=read_static_hosts())
 
 @app.route('/docs')
 def docs():
@@ -277,7 +303,7 @@ def docs():
 def action():
     cmd = request.json.get('command')
     target = request.json.get('target') # For app install/remove
-    data = request.json.get('data') # For DHCP
+    data = request.json.get('data') # For DHCP/Config
     
     try:
         if cmd == 'reboot':
@@ -294,6 +320,40 @@ def action():
             action = 'down' if is_on else 'up'
             subprocess.run(['nmcli', 'connection', action, 'PIONEER_SETUP'], check=True)
             return jsonify({'status': 'success', 'new_state': not is_on})
+            
+        elif cmd == 'update_hotspot':
+            ssid = data.get('ssid')
+            password = data.get('password')
+            if len(password) < 8:
+                raise Exception("Password must be at least 8 characters")
+            
+            ensure_hotspot_exists()
+            subprocess.run(['nmcli', 'con', 'modify', 'PIONEER_SETUP', 'ssid', ssid, 'wifi-sec.psk', password], check=True)
+            # Restart connection
+            subprocess.run(['nmcli', 'con', 'down', 'PIONEER_SETUP'])
+            subprocess.run(['nmcli', 'con', 'up', 'PIONEER_SETUP'])
+            return jsonify({'status': 'success'})
+
+        elif cmd == 'set_hostname':
+            new_name = data.get('hostname')
+            # Validate hostname (alphanumeric, hyphens)
+            if not new_name.replace('-', '').isalnum():
+                raise Exception("Invalid hostname format")
+            
+            subprocess.run(['hostnamectl', 'set-hostname', new_name], check=True)
+            # Update /etc/hosts to prevent sudo warnings
+            subprocess.run(['sed', '-i', f's/127.0.1.1.*/127.0.1.1\t{new_name}/', '/etc/hosts'])
+            return jsonify({'status': 'success', 'message': 'Hostname changed. Reboot recommended.'})
+
+        elif cmd == 'update_password':
+            new_pass = data.get('password')
+            if len(new_pass) < 5:
+                 raise Exception("Password too short")
+            
+            config['admin_password'] = new_pass
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(config, f)
+            return jsonify({'status': 'success'})
 
         elif cmd == 'install_app':
             if target == 'wordpress':
