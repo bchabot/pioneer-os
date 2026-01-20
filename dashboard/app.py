@@ -171,47 +171,108 @@ def read_dhcp_leases():
                     })
     return leases
 
-def read_static_hosts():
-    hosts = []
-    host_file = '/etc/dnsmasq.d/pioneer-hosts.conf'
-    if os.path.exists(host_file):
-        with open(host_file, 'r') as f:
+# --- DNS & DHCP Config Helpers ---
+DHCP_CONF = '/etc/dnsmasq.d/pioneer-dhcp.conf'
+DNS_CONF = '/etc/dnsmasq.d/pioneer-dns.conf'
+
+def read_dhcp_reservations():
+    res = []
+    if os.path.exists(DHCP_CONF):
+        with open(DHCP_CONF, 'r') as f:
             for line in f:
                 if line.startswith('dhcp-host='):
-                    # Format: dhcp-host=mac,ip,hostname
+                    # dhcp-host=mac,ip,[hostname]
+                    # Note: hostname is optional in dhcp-host, but if present it sets it.
                     parts = line.strip().replace('dhcp-host=', '').split(',')
-                    if len(parts) >= 2:
-                         hosts.append({
-                             'mac': parts[0],
-                             'ip': parts[1] if len(parts) > 1 else '',
-                             'hostname': parts[2] if len(parts) > 2 else ''
-                         })
-    return hosts
+                    res.append({
+                        'mac': parts[0],
+                        'ip': parts[1] if len(parts) > 1 else '',
+                        'hostname': parts[2] if len(parts) > 2 else ''
+                    })
+    return res
 
-def save_static_host(mac, ip, hostname):
-    host_file = '/etc/dnsmasq.d/pioneer-hosts.conf'
-    # Read existing
+def save_dhcp_reservation(mac, ip, hostname=""):
     lines = []
-    if os.path.exists(host_file):
-        with open(host_file, 'r') as f:
+    if os.path.exists(DHCP_CONF):
+        with open(DHCP_CONF, 'r') as f:
             lines = f.readlines()
     
-    # Check if MAC exists and update, else append
-    new_line = f"dhcp-host={mac},{ip},{hostname}\n"
+    # Format: dhcp-host=MAC,IP,HOSTNAME (optional)
+    # Using set logic: if MAC exists, update it.
+    entry = f"dhcp-host={mac},{ip}"
+    if hostname:
+        entry += f",{hostname}"
+    entry += "\n"
+
     found = False
     for i, line in enumerate(lines):
         if f"dhcp-host={mac}" in line:
-            lines[i] = new_line
+            lines[i] = entry
             found = True
             break
     
     if not found:
-        lines.append(new_line)
+        lines.append(entry)
         
-    with open(host_file, 'w') as f:
+    with open(DHCP_CONF, 'w') as f:
         f.writelines(lines)
+    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
+
+def delete_dhcp_reservation(mac):
+    if not os.path.exists(DHCP_CONF): return
+    with open(DHCP_CONF, 'r') as f:
+        lines = f.readlines()
     
-    # Restart dnsmasq (or reload)
+    with open(DHCP_CONF, 'w') as f:
+        for line in lines:
+            if f"dhcp-host={mac}" not in line:
+                f.write(line)
+    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
+
+def read_dns_records():
+    recs = []
+    if os.path.exists(DNS_CONF):
+        with open(DNS_CONF, 'r') as f:
+            for line in f:
+                if line.startswith('host-record='):
+                    # host-record=hostname,ip
+                    parts = line.strip().replace('host-record=', '').split(',')
+                    if len(parts) >= 2:
+                        recs.append({'hostname': parts[0], 'ip': parts[1]})
+    return recs
+
+def save_dns_record(hostname, ip):
+    lines = []
+    if os.path.exists(DNS_CONF):
+        with open(DNS_CONF, 'r') as f:
+            lines = f.readlines()
+    
+    entry = f"host-record={hostname},{ip}\n"
+    
+    # Check if hostname exists, update IP
+    found = False
+    for i, line in enumerate(lines):
+        if line.startswith(f"host-record={hostname},"):
+            lines[i] = entry
+            found = True
+            break
+            
+    if not found:
+        lines.append(entry)
+        
+    with open(DNS_CONF, 'w') as f:
+        f.writelines(lines)
+    subprocess.call(['systemctl', 'restart', 'dnsmasq'])
+
+def delete_dns_record(hostname):
+    if not os.path.exists(DNS_CONF): return
+    with open(DNS_CONF, 'r') as f:
+        lines = f.readlines()
+    
+    with open(DNS_CONF, 'w') as f:
+        for line in lines:
+            if not line.startswith(f"host-record={hostname},"):
+                f.write(line)
     subprocess.call(['systemctl', 'restart', 'dnsmasq'])
 
 # --- Routes ---
@@ -290,7 +351,8 @@ def network():
                          interfaces=interfaces, 
                          hotspot_active=get_hotspot_status(),
                          leases=read_dhcp_leases(), 
-                         static_hosts=read_static_hosts())
+                         dhcp_reservations=read_dhcp_reservations(),
+                         dns_records=read_dns_records())
 
 @app.route('/docs')
 def docs():
@@ -388,8 +450,21 @@ def action():
                 shutil.rmtree('/opt/pioneer/wordpress', ignore_errors=True)
                 return jsonify({'status': 'removed'})
 
-        elif cmd == 'add_static_lease':
-            save_static_host(data['mac'], data['ip'], data['hostname'])
+        # --- DHCP & DNS Actions ---
+        elif cmd == 'add_dhcp_reservation':
+            save_dhcp_reservation(data['mac'], data['ip'], data.get('hostname', ''))
+            return jsonify({'status': 'success'})
+
+        elif cmd == 'del_dhcp_reservation':
+            delete_dhcp_reservation(data['mac'])
+            return jsonify({'status': 'success'})
+
+        elif cmd == 'add_dns_record':
+            save_dns_record(data['hostname'], data['ip'])
+            return jsonify({'status': 'success'})
+
+        elif cmd == 'del_dns_record':
+            delete_dns_record(data['hostname'])
             return jsonify({'status': 'success'})
 
     except Exception as e:

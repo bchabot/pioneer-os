@@ -102,7 +102,7 @@
                                 <td>{{ lease.mac }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary" 
-                                        onclick="prefill('{{ lease.mac }}', '{{ lease.ip }}', '{{ lease.hostname }}')">
+                                        onclick="prefillDHCP('{{ lease.mac }}', '{{ lease.ip }}', '{{ lease.hostname }}')">
                                         Reserve
                                     </button>
                                 </td>
@@ -117,57 +117,31 @@
         </div>
     </div>
 
-    <!-- System Settings (Hostname / Admin Pass) -->
-    <div class="col-md-6 mb-4">
-        <div class="card h-100">
-            <div class="card-header bg-dark text-white">
-                <i class="fas fa-server"></i> System Identity
-            </div>
-            <div class="card-body">
-                <form onsubmit="event.preventDefault(); updateHostname();" class="mb-4">
-                    <label>Hostname</label>
-                    <div class="input-group">
-                        <input type="text" id="sys_hostname" class="form-control" placeholder="pioneer-node" required>
-                        <button class="btn btn-outline-secondary" type="submit">Set</button>
-                    </div>
-                    <small class="text-muted">Requires reboot.</small>
-                </form>
-
-                <hr>
-
-                <form onsubmit="event.preventDefault(); updatePassword();">
-                    <label>Admin Password</label>
-                    <div class="input-group">
-                        <input type="password" id="sys_password" class="form-control" placeholder="New Password" required>
-                        <button class="btn btn-outline-danger" type="submit">Change</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Static Reservations -->
+    <!-- DHCP Reservations -->
     <div class="col-md-6 mb-4">
         <div class="card h-100">
             <div class="card-header bg-warning text-dark">
-                <i class="fas fa-thumbtack"></i> Static Reservations
+                <i class="fas fa-thumbtack"></i> DHCP Reservations
             </div>
             <div class="card-body">
+                <p class="small text-muted">Assign fixed IPs to MAC addresses.</p>
                 <div class="table-responsive mb-3" style="max-height: 200px; overflow-y: auto;">
                     <table class="table table-sm">
                         <thead>
                             <tr>
-                                <th>Hostname</th>
-                                <th>IP</th>
                                 <th>MAC</th>
+                                <th>IP</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for host in static_hosts %}
+                            {% for res in dhcp_reservations %}
                             <tr>
-                                <td>{{ host.hostname }}</td>
-                                <td>{{ host.ip }}</td>
-                                <td>{{ host.mac }}</td>
+                                <td>{{ res.mac }}</td>
+                                <td>{{ res.ip }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger py-0" onclick="deleteDHCP('{{ res.mac }}')">&times;</button>
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -175,31 +149,110 @@
                 </div>
                 
                 <h6>Add Reservation</h6>
-                <form id="reservationForm" onsubmit="event.preventDefault(); addReservation();">
-                    <div class="mb-2">
-                        <input type="text" id="res_hostname" class="form-control form-control-sm" placeholder="Hostname" required>
-                    </div>
+                <form id="dhcpForm" onsubmit="event.preventDefault(); addDHCP();">
                     <div class="row g-2">
                         <div class="col-6">
-                            <input type="text" id="res_ip" class="form-control form-control-sm" placeholder="IP Address" required>
+                            <input type="text" id="dhcp_mac" class="form-control form-control-sm" placeholder="MAC Address" required>
                         </div>
                         <div class="col-6">
-                            <input type="text" id="res_mac" class="form-control form-control-sm" placeholder="MAC Address" required>
+                            <input type="text" id="dhcp_ip" class="form-control form-control-sm" placeholder="IP Address" required>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-success btn-sm w-100 mt-2">Save Reservation</button>
+                    <div class="mt-2">
+                        <input type="text" id="dhcp_hostname" class="form-control form-control-sm" placeholder="Hostname (Optional)">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm w-100 mt-2">Save DHCP</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Local DNS Records -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <i class="fas fa-globe"></i> Local DNS Records
+            </div>
+            <div class="card-body">
+                 <p class="small text-muted">Map hostnames to IPs (no MAC required).</p>
+                <div class="table-responsive mb-3" style="max-height: 200px; overflow-y: auto;">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Hostname</th>
+                                <th>IP</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rec in dns_records %}
+                            <tr>
+                                <td>{{ rec.hostname }}</td>
+                                <td>{{ rec.ip }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-danger py-0" onclick="deleteDNS('{{ rec.hostname }}')">&times;</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h6>Add DNS Record</h6>
+                <form id="dnsForm" onsubmit="event.preventDefault(); addDNS();">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="text" id="dns_hostname" class="form-control form-control-sm" placeholder="Hostname" required>
+                        </div>
+                        <div class="col-6">
+                            <input type="text" id="dns_ip" class="form-control form-control-sm" placeholder="IP Address" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm w-100 mt-2">Save DNS</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Settings -->
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-cogs"></i> System Settings
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                         <form onsubmit="event.preventDefault(); updateHostname();" class="mb-4">
+                            <label>System Hostname</label>
+                            <div class="input-group">
+                                <input type="text" id="sys_hostname" class="form-control" placeholder="pioneer-node" required>
+                                <button class="btn btn-outline-secondary" type="submit">Set</button>
+                            </div>
+                            <small class="text-muted">Requires reboot.</small>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <form onsubmit="event.preventDefault(); updatePassword();">
+                            <label>Admin Password</label>
+                            <div class="input-group">
+                                <input type="password" id="sys_password" class="form-control" placeholder="New Password" required>
+                                <button class="btn btn-outline-danger" type="submit">Change</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    function prefill(mac, ip, hostname) {
-        document.getElementById('res_mac').value = mac;
-        document.getElementById('res_ip').value = ip;
-        document.getElementById('res_hostname').value = hostname;
-        document.getElementById('res_hostname').focus();
+    function prefillDHCP(mac, ip, hostname) {
+        document.getElementById('dhcp_mac').value = mac;
+        document.getElementById('dhcp_ip').value = ip;
+        document.getElementById('dhcp_hostname').value = hostname;
+        document.getElementById('dhcp_mac').focus();
     }
 
     function apiCall(cmd, data) {
@@ -210,14 +263,45 @@
         }).then(r => r.json());
     }
 
-    function addReservation() {
+    function addDHCP() {
         const data = {
-            hostname: document.getElementById('res_hostname').value,
-            ip: document.getElementById('res_ip').value,
-            mac: document.getElementById('res_mac').value
+            mac: document.getElementById('dhcp_mac').value,
+            ip: document.getElementById('dhcp_ip').value,
+            hostname: document.getElementById('dhcp_hostname').value
         };
-        if(confirm('Save reservation?')) {
-            apiCall('add_static_lease', data).then(res => {
+        if(confirm('Save DHCP reservation?')) {
+            apiCall('add_dhcp_reservation', data).then(res => {
+                if(res.status === 'success') location.reload();
+                else alert('Error: ' + (res.message || res.status));
+            });
+        }
+    }
+
+    function deleteDHCP(mac) {
+        if(confirm('Delete reservation for ' + mac + '?')) {
+            apiCall('del_dhcp_reservation', {mac: mac}).then(res => {
+                if(res.status === 'success') location.reload();
+                else alert('Error: ' + res.status);
+            });
+        }
+    }
+
+    function addDNS() {
+        const data = {
+            hostname: document.getElementById('dns_hostname').value,
+            ip: document.getElementById('dns_ip').value
+        };
+        if(confirm('Save DNS record?')) {
+            apiCall('add_dns_record', data).then(res => {
+                if(res.status === 'success') location.reload();
+                else alert('Error: ' + (res.message || res.status));
+            });
+        }
+    }
+
+    function deleteDNS(hostname) {
+         if(confirm('Delete DNS record for ' + hostname + '?')) {
+            apiCall('del_dns_record', {hostname: hostname}).then(res => {
                 if(res.status === 'success') location.reload();
                 else alert('Error: ' + res.status);
             });
