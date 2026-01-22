@@ -29,6 +29,24 @@ enable_system_dnsmasq:
     - require:
       - pkg: dnsmasq
       - service: disable_systemd_resolved
+      - file: nm_conf_dns
+
+# Disable NetworkManager DNS management so it doesn't hog port 53
+nm_conf_dns:
+  file.managed:
+    - name: /etc/NetworkManager/conf.d/00-pioneer-dns.conf
+    - contents: |
+        [main]
+        dns=none
+    - require:
+      - pkg: network_manager_pkg
+
+# Apply NetworkManager changes (Might briefly disrupt network, but necessary)
+restart_nm_for_dns:
+  cmd.run:
+    - name: systemctl restart NetworkManager
+    - onchanges:
+      - file: nm_conf_dns
 
 # We will let NetworkManager handle the actual interface config (AP mode)
 # via the 'nmcli' commands run in the setup script.
