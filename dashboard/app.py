@@ -177,18 +177,22 @@ DNS_CONF = '/etc/dnsmasq.d/pioneer-dns.conf'
 
 def reload_dnsmasq():
     """Reloads dnsmasq configuration safely."""
+    log_file = '/var/log/pioneer-dashboard.log'
     try:
         # Check config syntax first
         subprocess.check_call(['dnsmasq', '--test'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # Try reload
         subprocess.check_call(['systemctl', 'reload', 'dnsmasq'])
     except subprocess.CalledProcessError as e:
-        print(f"Failed to reload dnsmasq: {e}", file=sys.stderr)
-        # Fallback to restart if reload fails or isn't supported (though reload is standard)
+        with open(log_file, 'a') as f:
+            f.write(f"Reload failed: {e}\n")
+        
+        # Fallback to restart if reload fails or isn't supported
         try:
              subprocess.check_call(['systemctl', 'restart', 'dnsmasq'])
         except Exception as e2:
-             print(f"Failed to restart dnsmasq: {e2}", file=sys.stderr)
+             with open(log_file, 'a') as f:
+                f.write(f"Restart failed: {e2}\n")
              raise Exception("Failed to apply network changes (dnsmasq error)")
 
 def ensure_config_dir():
@@ -239,6 +243,9 @@ def save_dhcp_reservation(mac, ip, hostname=""):
             break
     
     if not found:
+        # Ensure we are on a new line if the file has content and no trailing newline
+        if lines and not lines[-1].endswith('\n'):
+            lines[-1] += '\n'
         lines.append(entry)
         
     with open(DHCP_CONF, 'w') as f:
@@ -296,6 +303,9 @@ def save_dns_record(hostname, ip):
             break
             
     if not found:
+        # Ensure we are on a new line
+        if lines and not lines[-1].endswith('\n'):
+            lines[-1] += '\n'
         lines.append(entry)
         
     with open(DNS_CONF, 'w') as f:

@@ -261,12 +261,32 @@
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({command: cmd, data: data})
         })
-        .then(r => r.json())
-        .then(res => {
-            if(res.status === 'success') {
-                return res;
+        .then(response => {
+            if (response.redirected) {
+                // Fetch followed a redirect (likely to login page)
+                window.location.href = response.url;
+                throw new Error("Session expired. Redirecting...");
+            }
+            
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                return response.json().then(res => {
+                    if(res.status === 'success') {
+                        return res;
+                    } else {
+                        throw new Error(res.message || res.status);
+                    }
+                });
             } else {
-                throw new Error(res.message || res.status);
+                // Handle non-JSON response (e.g. HTML error page or login page)
+                return response.text().then(text => {
+                    if (text.includes("<!DOCTYPE html>") || text.includes("<html")) {
+                         alert("Session expired or server error. Reloading page.");
+                         window.location.reload();
+                         throw new Error("Session expired");
+                    }
+                    throw new Error("Server Error: " + text.substring(0, 100));
+                });
             }
         });
     }
