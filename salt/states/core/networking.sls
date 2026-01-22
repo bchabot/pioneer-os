@@ -10,17 +10,25 @@ enable_network_manager:
     - name: NetworkManager
     - enable: True
 
-# Install DNSMasq (NetworkManager uses the binary, but we don't want the system service running)
+# Install DNSMasq
 dnsmasq_pkg:
   pkg.installed:
     - name: dnsmasq
 
-disable_system_dnsmasq:
+# Disable systemd-resolved to free up port 53 for dnsmasq
+disable_systemd_resolved:
   service.dead:
-    - name: dnsmasq
+    - name: systemd-resolved
     - enable: False
+
+# Enable DNSMasq system service (Dashboard manages config in /etc/dnsmasq.d/)
+enable_system_dnsmasq:
+  service.running:
+    - name: dnsmasq
+    - enable: True
     - require:
       - pkg: dnsmasq
+      - service: disable_systemd_resolved
 
 # We will let NetworkManager handle the actual interface config (AP mode)
 # via the 'nmcli' commands run in the setup script.
