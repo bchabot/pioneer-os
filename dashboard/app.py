@@ -178,22 +178,44 @@ DNS_CONF = '/etc/dnsmasq.d/pioneer-dns.conf'
 def reload_dnsmasq():
     """Reloads dnsmasq configuration safely."""
     log_file = '/var/log/pioneer-dashboard.log'
+    
+    def log_error(msg):
+        try:
+            with open(log_file, 'a') as f:
+                f.write(f"[DNSMASQ ERROR] {msg}\n")
+        except:
+            pass
+
     try:
         # Check config syntax first
-        subprocess.check_call(['dnsmasq', '--test'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # Try reload
-        subprocess.check_call(['systemctl', 'reload', 'dnsmasq'])
-    except subprocess.CalledProcessError as e:
-        with open(log_file, 'a') as f:
-            f.write(f"Reload failed: {e}\n")
+        subprocess.check_output(['dnsmasq', '--test'], stderr=subprocess.STDOUT)
         
-        # Fallback to restart if reload fails or isn't supported
+        # Check if running
         try:
-             subprocess.check_call(['systemctl', 'restart', 'dnsmasq'])
-        except Exception as e2:
-             with open(log_file, 'a') as f:
-                f.write(f"Restart failed: {e2}\n")
-             raise Exception("Failed to apply network changes (dnsmasq error)")
+            subprocess.check_call(['systemctl', 'is-active', '--quiet', 'dnsmasq'])
+            is_running = True
+        except subprocess.CalledProcessError:
+            is_running = False
+
+        if is_running:
+            # Try reload
+            try:
+                subprocess.check_output(['systemctl', 'reload', 'dnsmasq'], stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                log_error(f"Reload failed: {e.output.decode()}")
+                # Fallback to restart
+                subprocess.check_output(['systemctl', 'restart', 'dnsmasq'], stderr=subprocess.STDOUT)
+        else:
+            # Not running, just start
+            subprocess.check_output(['systemctl', 'start', 'dnsmasq'], stderr=subprocess.STDOUT)
+
+    except subprocess.CalledProcessError as e:
+        err_msg = e.output.decode().strip() if e.output else str(e)
+        log_error(f"Operation failed: {err_msg}")
+        raise Exception(f"Dnsmasq Error: {err_msg}")
+    except Exception as e:
+        log_error(f"Unexpected error: {str(e)}")
+        raise Exception(f"System Error: {str(e)}")
 
 def ensure_config_dir():
     if not os.path.exists('/etc/dnsmasq.d'):
