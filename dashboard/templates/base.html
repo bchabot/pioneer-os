@@ -58,12 +58,30 @@
 <script>
     function sendAction(cmd, target=null) {
         if(confirm('Are you sure you want to perform this action?')) {
-            fetch('{{ url_for("action") }}', {
+            // Use relative path 'api/action' to work behind Nginx /admin/ prefix
+            fetch('api/action', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({command: cmd, target: target})
             })
-            .then(r => r.json())
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    throw new Error("Session expired");
+                }
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    return response.json();
+                } else {
+                    return response.text().then(text => {
+                         if (text.includes("<!DOCTYPE html>")) {
+                             window.location.reload();
+                             throw new Error("Session expired");
+                         }
+                         throw new Error("Server Error: " + text.substring(0, 100));
+                    });
+                }
+            })
             .then(data => {
                 if(['success', 'started', 'stopped', 'removed', 'installing'].includes(data.status)) {
                     location.reload();
@@ -71,7 +89,11 @@
                     alert('Action sent: ' + data.status);
                 }
             })
-            .catch(err => alert('Network/Server Error: ' + err));
+            .catch(err => {
+                if(err.message !== "Session expired") {
+                    alert('Network/Server Error: ' + err.message);
+                }
+            });
         }
     }
 </script>

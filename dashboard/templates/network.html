@@ -256,7 +256,8 @@
     }
 
     function apiCall(cmd, data) {
-        return fetch('/api/action', {
+        // Use relative path 'api/action'
+        return fetch('api/action', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({command: cmd, data: data})
